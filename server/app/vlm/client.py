@@ -7,8 +7,13 @@ from app.vlm.prompts import build_prompt
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-def get_next_action(task_description: str, dom_summary: str, redacted_image_b64: str) -> dict:
-    prompt_text = build_prompt(task_description, dom_summary)
+def get_next_action(
+    task_description: str,
+    dom_summary: str,
+    redacted_image_b64: str,
+    history_text: str = "(no actions taken yet)",
+) -> dict:
+    prompt_text = build_prompt(task_description, dom_summary, history_text)
     image_bytes = base64.b64decode(redacted_image_b64)
 
     response = client.models.generate_content(

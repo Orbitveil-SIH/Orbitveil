@@ -14,3 +14,29 @@ class AnalyzeRequest(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     action: Action
+
+
+# --- Session-scoped schema ------------------------------------------------
+
+class StartSessionRequest(BaseModel):
+    task_description: str
+
+class StartSessionResponse(BaseModel):
+    session_id: str
+    status: str
+
+class StepRequest(BaseModel):
+    dom_summary: str
+    redacted_image_b64: str
+
+class StepResponse(BaseModel):
+    session_id: str
+    status: str
+    action: Action
+
+class SessionStateResponse(BaseModel):
+    session_id: str
+    task_description: str
+    status: str
+    step_count: int
+    error_message: Optional[str] = None

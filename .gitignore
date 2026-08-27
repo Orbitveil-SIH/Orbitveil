@@ -1,10 +1,26 @@
-node_modules/
+# Python
 __pycache__/
 *.pyc
-.env
-venv/
+*.pyo
 .venv/
-dist/
-build/
-*.log
+venv/
+*.egg-info/
+
+# Env files - NEVER commit real secrets
+.env
+server/.env
+
+# Node
+node_modules/
+extension/dist/
+
+# OS junk
 .DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log

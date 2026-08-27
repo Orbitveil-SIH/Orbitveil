@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SIH26171 Client-Server Action Contract",
+  "description": "DRAFT by Aparna, single-shot design (no sessions). Danwin to review/finalize on return.",
+  "definitions": {
+    "AnalyzeRequest": {
+      "type": "object",
+      "description": "Extension -> Server, POST /analyze",
+      "properties": {
+        "task_description": { "type": "string", "description": "What the user wants done, e.g. 'Fill in the bio and favorite color fields, then submit.'" },
+        "dom_summary": { "type": "string", "description": "Sanitized structural DOM info - no raw PII values, just structure/labels/selectors" },
+        "redacted_image_b64": { "type": "string", "description": "Base64 PNG, POST-redaction screenshot only. Faces blurred, PII black-boxed." }
+      },
+      "required": ["task_description", "dom_summary", "redacted_image_b64"]
+    },
+    "Action": {
+      "type": "object",
+      "description": "Single next action, returned by server, executed by extension",
+      "properties": {
+        "type": { "type": "string", "enum": ["click", "type", "scroll", "wait", "done"] },
+        "target": { "type": ["string", "null"], "description": "CSS selector or short element description" },
+        "value": { "type": ["string", "null"], "description": "Text to type, only used when type='type'" },
+        "reasoning": { "type": ["string", "null"], "description": "One sentence on why this action was chosen" }
+      },
+      "required": ["type"]
+    },
+    "AnalyzeResponse": {
+      "type": "object",
+      "description": "Server -> Extension, response to POST /analyze",
+      "properties": {
+        "action": { "$ref": "#/definitions/Action" }
+      },
+      "required": ["action"]
+    }
+  },
+  "notes": [
+    "Design decision: single-shot, not session-based. Extension loops: capture -> redact -> POST /analyze -> execute action -> repeat, until action.type == 'done'.",
+    "No session ID, no server-side state between calls - server is stateless, re-reasons from scratch each call using fresh dom_summary + redacted_image_b64.",
+    "Rationale: simpler under hackathon deadline, no session storage/cleanup bugs, Gemini doesn't need conversation memory if each call gets full current context.",
+    "OPEN QUESTION FOR DANWIN: does executor.js need target to be a guaranteed-valid CSS selector, or should it support fallback matching (e.g. text content) in case Gemini's selector guess is wrong/stale?",
+    "OPEN QUESTION FOR DANWIN: does scroll need a direction/amount field? Currently has nowhere to put that."
+  ]
+}

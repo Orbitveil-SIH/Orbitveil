@@ -1,41 +1,79 @@
 import base64
+import json
+import time
 from google import genai
 from google.genai import types
 from app.core.config import GEMINI_API_KEY, GEMINI_MODEL
 from app.vlm.prompts import build_prompt
-from app.schema.action_schema import Action
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-# Gemini enforces this schema at generation time (constrained decoding), so
-# the model is structurally incapable of returning malformed or off-schema
-# JSON — no markdown fences, no prose, no missing/extra fields to guard
-# against after the fact.
-GENERATE_CONFIG = types.GenerateContentConfig(
-    response_mime_type="application/json",
-    response_schema=Action,
-)
+MAX_RETRIES = 2
+RETRY_DELAY_SECONDS = 2
 
-def get_next_action(
-    task_description: str,
-    dom_summary: str,
-    redacted_image_b64: str,
-    history_text: str = "(no actions taken yet)",
-) -> dict:
-    prompt_text = build_prompt(task_description, dom_summary, history_text)
+# Gemini doesn't always use our exact field names - normalize known variants
+KEY_ALIASES = {
+    "action": "type",
+    "action_type": "type",
+    "selector": "target",
+    "element": "target",
+    "text": "value",
+    "input": "value",
+    "reason": "reasoning",
+}
+
+def normalize_action(raw: dict) -> dict:
+    normalized = {}
+    for key, val in raw.items():
+        canonical_key = KEY_ALIASES.get(key, key)
+        normalized[canonical_key] = val
+
+    # ensure required field exists even if nothing matched
+    if "type" not in normalized:
+        normalized["type"] = "wait"
+    normalized.setdefault("target", None)
+    normalized.setdefault("value", None)
+    normalized.setdefault("reasoning", None)
+    return normalized
+
+def get_next_action(task_description: str, dom_summary: str, redacted_image_b64: str) -> dict:
+    prompt_text = build_prompt(task_description, dom_summary)
     image_bytes = base64.b64decode(redacted_image_b64)
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=[
-            types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
-            prompt_text,
-        ],
-        config=GENERATE_CONFIG,
-    )
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 2):
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
+                    prompt_text,
+                ],
+            )
+            raw_text = response.text.strip()
+            raw_text = raw_text.replace("```json", "").replace("```", "").strip()
 
-    # response.parsed is already an Action instance (the SDK validates it
-    # against response_schema for us); .text is the same data as raw JSON
-    # if you ever need the string form instead.
-    action: Action = response.parsed
-    return action.model_dump()
+            try:
+                parsed = json.loads(raw_text)
+                return normalize_action(parsed)
+            except json.JSONDecodeError:
+                return {
+                    "type": "wait",
+                    "target": None,
+                    "value": None,
+                    "reasoning": f"Failed to parse model output: {raw_text[:200]}",
+                }
+
+        except Exception as e:
+            last_error = e
+            print(f"[VLM] Attempt {attempt} failed: {e}")
+            if attempt <= MAX_RETRIES:
+                time.sleep(RETRY_DELAY_SECONDS)
+            continue
+
+    return {
+        "type": "wait",
+        "target": None,
+        "value": None,
+        "reasoning": f"VLM call failed after {MAX_RETRIES + 1} attempts: {last_error}",
+    }

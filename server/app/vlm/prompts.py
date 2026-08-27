@@ -14,14 +14,8 @@ is now complete.
 Given the task description, the action history, and the current page state, decide
 the SINGLE next best action.
 
-Respond with ONLY valid JSON, no markdown fences, no preamble, matching this schema:
-{
-  "type": "click" | "type" | "scroll" | "wait" | "done",
-  "target": "<CSS selector or short element description, or null>",
-  "value": "<text to type, or null>",
-  "reasoning": "<one sentence on why>"
-}
-
+For "target", give a CSS selector or short element description, or leave it null.
+For "value", give the text to type if type == "type", or leave it null.
 Use "done" once the task has been fully completed, with a reasoning that says so.
 """
 

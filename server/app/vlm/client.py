@@ -1,11 +1,20 @@
 import base64
-import json
 from google import genai
 from google.genai import types
 from app.core.config import GEMINI_API_KEY, GEMINI_MODEL
 from app.vlm.prompts import build_prompt
+from app.schema.action_schema import Action
 
 client = genai.Client(api_key=GEMINI_API_KEY)
+
+# Gemini enforces this schema at generation time (constrained decoding), so
+# the model is structurally incapable of returning malformed or off-schema
+# JSON — no markdown fences, no prose, no missing/extra fields to guard
+# against after the fact.
+GENERATE_CONFIG = types.GenerateContentConfig(
+    response_mime_type="application/json",
+    response_schema=Action,
+)
 
 def get_next_action(
     task_description: str,
@@ -22,18 +31,11 @@ def get_next_action(
             types.Part.from_bytes(data=image_bytes, mime_type="image/png"),
             prompt_text,
         ],
+        config=GENERATE_CONFIG,
     )
 
-    raw_text = response.text.strip()
-    # strip accidental markdown fences if the model adds them
-    raw_text = raw_text.replace("```json", "").replace("```", "").strip()
-
-    try:
-        return json.loads(raw_text)
-    except json.JSONDecodeError:
-        return {
-            "type": "wait",
-            "target": None,
-            "value": None,
-            "reasoning": f"Failed to parse model output: {raw_text[:200]}",
-        }
+    # response.parsed is already an Action instance (the SDK validates it
+    # against response_schema for us); .text is the same data as raw JSON
+    # if you ever need the string form instead.
+    action: Action = response.parsed
+    return action.model_dump()

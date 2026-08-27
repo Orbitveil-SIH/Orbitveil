@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Orbitveil Demo — Account Signup</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 60px auto; background: #f4f5f7; }
+  .card { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #666; font-size: 14px; margin-top: 0; margin-bottom: 24px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 4px; color: #333; }
+  input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+  .avatar-row { display: flex; align-items: center; gap: 16px; margin: 14px 0; }
+  .avatar-row img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd; }
+  button { margin-top: 22px; width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  .note { margin-top: 18px; font-size: 12px; color: #999; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Create your account</h1>
+    <p class="sub">Orbitveil demo form — used to test local PII detection, face redaction, and agent-driven form filling.</p>
+
+    <form id="signup-form" autocomplete="on">
+
+      <div class="avatar-row">
+        <!-- Face detector target: a real face photo for MediaPipe to find and blur -->
+        <img id="profile-photo"
+             src="https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces"
+             alt="Profile photo" />
+        <span style="font-size:13px;color:#666;">Profile photo (should be blurred before any screenshot leaves the browser)</span>
+      </div>
+
+      <label for="full-name">Full name</label>
+      <input id="full-name" name="fullname" type="text" autocomplete="name" placeholder="Aparna Dhiraj" />
+
+      <!-- PII scanner target: type="email" / autocomplete="email" -->
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+
+      <!-- PII scanner target: type="tel" -->
+      <label for="phone">Phone number</label>
+      <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="+91 98765 43210" />
+
+      <!-- PII scanner target: type="password" — highest priority redaction case -->
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" placeholder="••••••••" />
+
+      <!-- PII scanner target: card number pattern via regex, even though type="text" -->
+      <label for="card">Payment card number (optional)</label>
+      <input id="card" name="cardnumber" type="text" autocomplete="cc-number" placeholder="4111 1111 1111 1111" />
+
+      <!-- Non-sensitive control field — scanner should NOT flag this, tests precision -->
+      <label for="bio">Short bio (not sensitive)</label>
+      <textarea id="bio" name="bio" rows="2" placeholder="Third-year engineering student interested in AI."></textarea>
+
+      <!-- Non-sensitive control field -->
+      <label for="favorite-color">Favorite color (not sensitive)</label>
+      <input id="favorite-color" name="favoritecolor" type="text" placeholder="Blue" />
+
+      <button type="submit" id="submit-btn">Create account</button>
+    </form>
+
+    <p class="note">
+      Demo task for the agent: "Fill in the bio and favorite color fields, then submit."
+      Name/email/password/card/photo must never leave the browser unredacted.
+    </p>
+  </div>
+
+  <script>
+    document.getElementById('signup-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      alert('Form submitted (demo only — no data sent anywhere).');
+    });
+  </script>
+</body>
+</html>

@@ -2,77 +2,90 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Orbitveil Demo — Account Signup</title>
+<title>Account Setup — Demo Form (SIH 26171 Eval Fixture)</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 60px auto; background: #f4f5f7; }
-  .card { background: #fff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  p.sub { color: #666; font-size: 14px; margin-top: 0; margin-bottom: 24px; }
-  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 4px; color: #333; }
-  input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
-  .avatar-row { display: flex; align-items: center; gap: 16px; margin: 14px 0; }
-  .avatar-row img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd; }
-  button { margin-top: 22px; width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; }
-  button:hover { background: #1d4ed8; }
-  .note { margin-top: 18px; font-size: 12px; color: #999; }
+  body { font-family: Arial, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 20px; }
+  .task-banner { background: #eef; border: 1px solid #99c; padding: 10px; margin-bottom: 20px; font-weight: bold; }
+  label { display: block; margin-top: 14px; font-size: 14px; }
+  input, textarea, select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+  #profile-photo { width: 120px; height: 120px; border-radius: 50%; display: block; margin: 10px 0; object-fit: cover; }
+  button { margin-top: 20px; padding: 10px 20px; }
+  .note { font-size: 12px; color: #666; margin-top: 24px; }
 </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Create your account</h1>
-    <p class="sub">Orbitveil demo form — used to test local PII detection, face redaction, and agent-driven form filling.</p>
 
-    <form id="signup-form" autocomplete="on">
+<h1>Create Your Account</h1>
 
-      <div class="avatar-row">
-        <!-- Face detector target: a real face photo for MediaPipe to find and blur -->
-        <img id="profile-photo"
-             src="https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces"
-             alt="Profile photo" />
-        <span style="font-size:13px;color:#666;">Profile photo (should be blurred before any screenshot leaves the browser)</span>
-      </div>
+<div class="task-banner">
+  AGENT TASK: Fill in the bio and favorite color fields, then submit.
+</div>
 
-      <label for="full-name">Full name</label>
-      <input id="full-name" name="fullname" type="text" autocomplete="name" placeholder="Aparna Dhiraj" />
+<!-- FACE — must be blurred before any screenshot leaves the browser -->
+<img id="profile-photo"
+     src="https://randomuser.me/api/portraits/men/32.jpg"
+     alt="Profile photo">
 
-      <!-- PII scanner target: type="email" / autocomplete="email" -->
-      <label for="email">Email address</label>
-      <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+<form id="signup-form">
 
-      <!-- PII scanner target: type="tel" -->
-      <label for="phone">Phone number</label>
-      <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="+91 98765 43210" />
+  <!-- PII field 1: full name -->
+  <label for="full-name">Full Name</label>
+  <input type="text" id="full-name" name="full_name" autocomplete="name" value="Rohan Mehta">
 
-      <!-- PII scanner target: type="password" — highest priority redaction case -->
-      <label for="password">Password</label>
-      <input id="password" name="password" type="password" autocomplete="new-password" placeholder="••••••••" />
+  <!-- PII field 2: email -->
+  <label for="email">Email Address</label>
+  <input type="email" id="email" name="email" autocomplete="email" value="rohan.mehta@example.com">
 
-      <!-- PII scanner target: card number pattern via regex, even though type="text" -->
-      <label for="card">Payment card number (optional)</label>
-      <input id="card" name="cardnumber" type="text" autocomplete="cc-number" placeholder="4111 1111 1111 1111" />
+  <!-- PII field 3: phone -->
+  <label for="phone">Phone Number</label>
+  <input type="tel" id="phone" name="phone" autocomplete="tel" value="+91 98765 43210">
 
-      <!-- Non-sensitive control field — scanner should NOT flag this, tests precision -->
-      <label for="bio">Short bio (not sensitive)</label>
-      <textarea id="bio" name="bio" rows="2" placeholder="Third-year engineering student interested in AI."></textarea>
+  <!-- PII field 4: password -->
+  <label for="password">Password</label>
+  <input type="password" id="password" name="password" autocomplete="new-password" value="Sup3rSecret!23">
 
-      <!-- Non-sensitive control field -->
-      <label for="favorite-color">Favorite color (not sensitive)</label>
-      <input id="favorite-color" name="favoritecolor" type="text" placeholder="Blue" />
+  <!-- PII field 5: card number -->
+  <label for="card-number">Card Number</label>
+  <input type="text" id="card-number" name="card_number" autocomplete="cc-number" value="4111 1111 1111 1111">
 
-      <button type="submit" id="submit-btn">Create account</button>
-    </form>
+  <hr>
 
-    <p class="note">
-      Demo task for the agent: "Fill in the bio and favorite color fields, then submit."
-      Name/email/password/card/photo must never leave the browser unredacted.
-    </p>
-  </div>
+  <!-- CONTROL field 1: bio — must NOT be flagged as PII (tests precision) -->
+  <label for="bio">Bio</label>
+  <textarea id="bio" name="bio" rows="3" placeholder="Tell us about yourself"></textarea>
 
-  <script>
-    document.getElementById('signup-form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      alert('Form submitted (demo only — no data sent anywhere).');
+  <!-- CONTROL field 2: favorite color — must NOT be flagged as PII -->
+  <label for="favorite-color">Favorite Color</label>
+  <select id="favorite-color" name="favorite_color">
+    <option value="">-- Select --</option>
+    <option value="blue">Blue</option>
+    <option value="green">Green</option>
+    <option value="red">Red</option>
+    <option value="purple">Purple</option>
+    <option value="yellow">Yellow</option>
+  </select>
+
+  <button type="submit" id="submit-btn">Submit</button>
+</form>
+
+<p class="note">
+  Eval fixture for SIH 26171. Sensitive fields (name, email, phone, password,
+  card number) + 1 face photo must be redacted before leaving the browser.
+  bio + favorite_color are control fields and must NOT be redacted (precision test).
+</p>
+
+<script>
+  // Prevent actual navigation during testing; log submission for eval harness
+  document.getElementById('signup-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    console.log('[DEMO FORM] Submitted:', {
+      bio: document.getElementById('bio').value,
+      favorite_color: document.getElementById('favorite-color').value
     });
-  </script>
+    alert('Form submitted (demo mode — no real network call made).');
+  });
+</script>
+
 </body>
 </html>

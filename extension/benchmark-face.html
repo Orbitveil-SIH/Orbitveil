@@ -1,0 +1,194 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Local Face Detector Benchmark</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 16px;
+    }
+
+    pre {
+      background: #f4f4f4;
+      padding: 16px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+    }
+
+    #status {
+      margin: 12px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Local Face Detector Benchmark</h2>
+
+  <p id="status">Loading MediaPipe...</p>
+
+  <input type="file" id="fileInput" accept="image/*" disabled>
+
+  <br><br>
+
+  <button id="benchmarkButton" disabled>
+    Run 10-Run Benchmark
+  </button>
+
+  <h3>Results</h3>
+
+  <pre id="output">Waiting...</pre>
+
+  <script type="module">
+    import {
+      FaceDetector,
+      FilesetResolver
+    } from "./node_modules/@mediapipe/tasks-vision/vision_bundle.mjs";
+
+    const status = document.getElementById("status");
+    const fileInput = document.getElementById("fileInput");
+    const benchmarkButton = document.getElementById("benchmarkButton");
+    const output = document.getElementById("output");
+
+    let detector = null;
+    let selectedImage = null;
+
+    async function init() {
+      try {
+        const vision = await FilesetResolver.forVisionTasks("./wasm");
+
+        detector = await FaceDetector.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "./models/blaze_face_short_range.tflite",
+            delegate: "GPU"
+          },
+          runningMode: "IMAGE",
+          minDetectionConfidence: 0.5
+        });
+
+        status.textContent =
+          "Local MediaPipe + local WASM + local model loaded.";
+
+        fileInput.disabled = false;
+
+      } catch (err) {
+        status.textContent = "Failed to load: " + err.message;
+        console.error(err);
+      }
+    }
+
+    fileInput.addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+
+      if (!file) return;
+
+      selectedImage = new Image();
+
+      selectedImage.src = URL.createObjectURL(file);
+
+      await selectedImage.decode();
+
+      benchmarkButton.disabled = false;
+
+      output.textContent =
+        "Image loaded.\n\nClick 'Run 10-Run Benchmark'.";
+    });
+
+    benchmarkButton.addEventListener("click", async () => {
+
+      if (!detector || !selectedImage) return;
+
+      output.textContent = "Running benchmark...";
+
+      // Warm-up run. This is NOT included in timing.
+      detector.detect(selectedImage);
+
+      const timings = [];
+
+      let lastBoxes = [];
+
+      for (let i = 0; i < 10; i++) {
+
+        const t0 = performance.now();
+
+        const result = detector.detect(selectedImage);
+
+        const t1 = performance.now();
+
+        const inferenceMs = t1 - t0;
+
+        timings.push(inferenceMs);
+
+        lastBoxes = (result.detections || []).map((d) => {
+
+          const bb = d.boundingBox;
+
+          const confidence =
+            d.categories?.[0]?.score ?? null;
+
+          return {
+            x: Math.round(bb.originX),
+            y: Math.round(bb.originY),
+            width: Math.round(bb.width),
+            height: Math.round(bb.height),
+            confidence:
+              confidence !== null
+                ? Number(confidence.toFixed(3))
+                : null
+          };
+
+        });
+
+        console.log(
+          `Run ${i + 1}: ${inferenceMs.toFixed(2)} ms`
+        );
+      }
+
+      timings.sort((a, b) => a - b);
+
+      const avg =
+        timings.reduce((sum, value) => sum + value, 0)
+        / timings.length;
+
+      const median =
+        timings[Math.floor(timings.length / 2)];
+
+      const p95 =
+        timings[
+          Math.min(
+            timings.length - 1,
+            Math.floor(timings.length * 0.95)
+          )
+        ];
+
+      const result = {
+        runs: 10,
+        avgMs: Number(avg.toFixed(2)),
+        medianMs: Number(median.toFixed(2)),
+        p95Ms: Number(p95.toFixed(2)),
+        minMs: Number(timings[0].toFixed(2)),
+        maxMs: Number(
+          timings[timings.length - 1].toFixed(2)
+        ),
+        lastDetectionBoxes: lastBoxes
+      };
+
+      console.log("FINAL BENCHMARK:", result);
+
+      output.textContent =
+        JSON.stringify(result, null, 2);
+    });
+
+    init();
+  </script>
+
+</body>
+</html>

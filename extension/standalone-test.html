@@ -1,0 +1,130 @@
+<!doctype html>
+<!--
+  Standalone Face Detector Test — Person 2 (Arya), Day 1 target.
+
+  This is NOT the extension build. It's a plain HTML page you can
+  double-click and open in Chrome right now, no npm install / no
+  bundler / no manifest, so you can hit today's target fast:
+  "face detector running standalone on a test image, boxes logged
+  to console."
+
+  It loads MediaPipe from a CDN, which is fine here because this is a
+  regular web page, not an extension content script (which has a
+  stricter CSP that blocks remote code). When you port this into
+  extension/src/vision/face-detector.js, the WASM + model files need
+  to be bundled locally instead — see the comment at the top of that
+  file.
+
+  Usage: open this file in Chrome, pick an image (the demo form's
+  profile photo works, or any photo with a face), watch the console
+  and the on-page output for bounding boxes + inference time.
+-->
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Face Detector — Standalone Test</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 16px; }
+    #preview-wrap { position: relative; display: inline-block; margin-top: 16px; }
+    #preview { max-width: 600px; display: block; }
+    #overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+    pre { background: #f4f4f4; padding: 12px; border-radius: 6px; overflow-x: auto; }
+    #status { color: #555; }
+  </style>
+</head>
+<body>
+  <h2>Face Detector — Standalone Test (Day 1)</h2>
+  <p id="status">Loading MediaPipe WASM + model…</p>
+  <input type="file" id="fileInput" accept="image/*" disabled />
+
+  <div id="preview-wrap">
+    <img id="preview" style="display:none;" />
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <h3>Output</h3>
+  <pre id="output">(pick an image above)</pre>
+
+  <script type="module">
+    import { FaceDetector, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+    const status = document.getElementById("status");
+    const fileInput = document.getElementById("fileInput");
+    const preview = document.getElementById("preview");
+    const overlay = document.getElementById("overlay");
+    const output = document.getElementById("output");
+    const ctx = overlay.getContext("2d");
+
+    let detector;
+
+    async function init() {
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+      detector = await FaceDetector.createFromOptions(vision, {
+        baseOptions: {
+          // Short-range (BlazeFace) model — matches face-detector.js choice.
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+          delegate: "GPU",
+        },
+        runningMode: "IMAGE",
+        minDetectionConfidence: 0.5,
+      });
+      status.textContent = "Model loaded. Pick an image to test.";
+      fileInput.disabled = false;
+    }
+
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file || !detector) return;
+
+      const url = URL.createObjectURL(file);
+      preview.src = url;
+      preview.style.display = "block";
+      await preview.decode();
+
+      overlay.width = preview.naturalWidth;
+      overlay.height = preview.naturalHeight;
+      overlay.style.width = preview.clientWidth + "px";
+      overlay.style.height = preview.clientHeight + "px";
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      const t0 = performance.now();
+      const result = detector.detect(preview);
+      const t1 = performance.now();
+      const inferenceMs = t1 - t0;
+
+      // This is the exact output shape agreed with Dilkush's redactor.
+      const boxes = (result.detections || []).map((d) => {
+        const bb = d.boundingBox;
+        const confidence = d.categories?.[0]?.score ?? null;
+        return {
+          x: Math.round(bb.originX),
+          y: Math.round(bb.originY),
+          width: Math.round(bb.width),
+          height: Math.round(bb.height),
+          confidence: confidence !== null ? Number(confidence.toFixed(3)) : null,
+        };
+      });
+
+      ctx.strokeStyle = "lime";
+      ctx.lineWidth = 3;
+      boxes.forEach((b) => ctx.strokeRect(b.x, b.y, b.width, b.height));
+
+      console.log("Face boxes:", boxes);
+      console.log("Inference time (ms):", inferenceMs);
+
+      output.textContent =
+        `Inference time: ${inferenceMs.toFixed(2)} ms\n` +
+        `Faces detected: ${boxes.length}\n\n` +
+        JSON.stringify(boxes, null, 2);
+    });
+
+    init().catch((err) => {
+      status.textContent = "Failed to load model: " + err.message;
+      console.error(err);
+    });
+  </script>
+</body>
+</html>

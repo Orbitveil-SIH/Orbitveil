@@ -1,12 +1,3 @@
-// capture.js
-// Takes a fresh screenshot of the current browser tab every time it's called.
-// No caching — always returns the current state.
-// Does NOT send anything anywhere, does NOT redact anything.
-
-/**
- * Captures a screenshot of the currently active browser tab.
- * @returns {Promise<string>} base64-encoded PNG image (no "data:image/png;base64," prefix)
- */
 async function captureScreenshot() {
   const dataUrl = await chrome.tabs.captureVisibleTab(null, {
     format: "png"

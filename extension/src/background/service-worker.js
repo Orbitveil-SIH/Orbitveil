@@ -9,7 +9,7 @@ async function getRedactedImage() {
 }
 async function getDomSummaryFromPage() {
   const tabs = await chrome.tabs.query({});
-  const tab = tabs.find((t) => t.url && t.url.startsWith("http"));
+  const tab = tabs.find((t) => t.url && t.url.includes("google.com"));
   if (!tab) {
     throw new Error("No active tab found.");
   }

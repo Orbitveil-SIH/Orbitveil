@@ -24,11 +24,12 @@ The field name is "value" (not "text" or "input").
 Do not add extra fields. Do not omit any of the four fields above.
 """
 
-def build_prompt(task_description: str, dom_summary: str) -> str:
+def build_prompt(task_description: str, dom_summary: str, history_text: str = None) -> str:
+    history_block = f"\n\nPRIOR STEPS TAKEN SO FAR:\n{history_text}\n" if history_text else ""
     return f"""{SYSTEM_PROMPT}
 
 TASK: {task_description}
-
-DOM SUMMARY:
+{history_block}
+CURRENT DOM SUMMARY:
 {dom_summary}
 """

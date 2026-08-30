@@ -36,8 +36,8 @@ def normalize_action(raw: dict) -> dict:
     normalized.setdefault("reasoning", None)
     return normalized
 
-def get_next_action(task_description: str, dom_summary: str, redacted_image_b64: str) -> dict:
-    prompt_text = build_prompt(task_description, dom_summary)
+def get_next_action(task_description: str, dom_summary: str, redacted_image_b64: str, history_text: str = None) -> dict:
+    prompt_text = build_prompt(task_description, dom_summary, history_text=history_text)
     image_bytes = base64.b64decode(redacted_image_b64)
 
     last_error = None

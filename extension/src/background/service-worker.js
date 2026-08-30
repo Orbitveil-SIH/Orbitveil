@@ -4,12 +4,6 @@ import { redactScreenshot } from "../vision/redactor.js";
 import { detectFaces } from "../vision/face-detector.js";
 import { getDomSummary } from "../utils/dom-summary.js";
 
-// --- Session-based API wrappers ------------------------------------------
-// NOTE: protocol.js currently only exports analyze() (legacy /analyze).
-// Once Danwin adds session wrappers to protocol.js, replace these three
-// inline fetch calls with imports from protocol.js instead. Kept here
-// inline for now so this loop is unblocked immediately.
-
 const SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
 
 async function startSession(taskDescription) {
@@ -19,7 +13,7 @@ async function startSession(taskDescription) {
     body: JSON.stringify({ task_description: taskDescription }),
   });
   if (!res.ok) throw new Error(`startSession failed: ${res.status}`);
-  return res.json(); // { session_id, status }
+  return res.json();
 }
 
 async function stepSession(sessionId, domSummary, redactedImageB64) {
@@ -35,7 +29,7 @@ async function stepSession(sessionId, domSummary, redactedImageB64) {
     const errBody = await res.json().catch(() => ({}));
     throw new Error(`stepSession failed: ${res.status} ${errBody.detail || ""}`);
   }
-  return res.json(); // { session_id, status, action }
+  return res.json();
 }
 
 async function deleteSession(sessionId) {
@@ -46,13 +40,14 @@ async function deleteSession(sessionId) {
   }
 }
 
-// --- Active tab targeting -------------------------------------------------
-// Generalized: whatever tab is currently active/focused, not hardcoded to
-// any specific site. To test against demo-form.html, just make it the
-// active tab before starting the loop.
+// NOTE: uses lastFocusedWindow instead of currentWindow. When running
+// runAutomationLoop() from the extension's own service worker DevTools
+// console, "currentWindow" can resolve to the DevTools window itself
+// (which has no tabs), causing "No active tab found." lastFocusedWindow
+// correctly targets the last focused normal browser window instead.
 
 async function getActiveTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab) {
     throw new Error("No active tab found.");
   }
@@ -63,9 +58,6 @@ async function getDomSummaryFromActiveTab(tab) {
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
-      // Inline duplicate of dom-summary.js logic, since executeScript's
-      // injected function can't import modules. Keep this in sync with
-      // extension/src/utils/dom-summary.js if that file changes.
       const elements = document.querySelectorAll("input, textarea, select, button, a");
       const summary = [];
       elements.forEach((el, index) => {
@@ -95,16 +87,10 @@ async function getDomSummaryFromActiveTab(tab) {
 }
 
 async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
-  // pii-scanner.js's scanForPII() reads the live DOM, so it also has to
-  // run inside the page context via executeScript, not in the service
-  // worker. We inject the whole scanner as a function body since
-  // executeScript can't import ES modules into the page.
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     args: [imageWidth, imageHeight],
     func: (imageWidth, imageHeight) => {
-      // --- Inlined from extension/src/vision/pii-scanner.js ---
-      // Keep in sync if pii-scanner.js changes.
       const PII_AUTOCOMPLETE = new Set(["name", "email", "tel", "cc-number", "new-password"]);
       const PII_TYPES = new Set(["password"]);
       const PII_KEYWORDS = ["name", "email", "phone", "tel", "password", "card", "credit"];
@@ -152,7 +138,6 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
 
       const detected = [];
 
-      // DOM-based
       document.querySelectorAll("input, textarea, select").forEach((el) => {
         const result = detectPIIElement(el);
         if (!result) return;
@@ -161,7 +146,6 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
         detected.push({ type: result.type, source: "dom", confidence: result.confidence, ...rect });
       });
 
-      // Regex on visible text (simplified inline version, form-field values excluded)
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
@@ -198,7 +182,6 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
         }
       }
 
-      // Dedupe
       const seen = new Set();
       return detected.filter((d) => {
         const key = [d.type, d.x, d.y, d.width, d.height].join("|");
@@ -211,20 +194,12 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
   return result;
 }
 
-// --- Redaction pipeline ---------------------------------------------------
-// This is the piece that was previously missing: face + PII detection were
-// never actually called before, so redactScreenshot() ran with empty
-// arrays every time. Now both run before redaction.
-
 async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
 
-  // face-detector.js needs a data URL (it does fetch() -> blob internally)
   const dataUrl = `data:image/png;base64,${screenshotB64}`;
   const { boxes: faces } = await detectFaces(dataUrl);
 
-  // Need image dimensions for the PII scanner's coordinate conversion.
-  // Decode just to read width/height (small local operation, no network).
   const dims = await new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
@@ -237,29 +212,20 @@ async function getRedactedImageAndDetections(tab) {
   const { redactedScreenshot, redactions } = await redactScreenshot(screenshotB64, faces, pii);
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);
 
-  // Strip the data URL prefix - server expects raw base64
   const base64Prefix = "base64,";
   const idx = redactedScreenshot.indexOf(base64Prefix);
   return redactedScreenshot.slice(idx + base64Prefix.length);
 }
 
-// --- Action execution -------------------------------------------------
 // TODO(Aakash): executor.js is currently empty. Once it exists, replace
 // this stub with: import { executeAction } from "../content/executor.js"
-// and call it via chrome.scripting.executeScript against the active tab
-// (executor.js needs DOM access, so it likely also needs to be injected
-// the same way getDomSummaryFromActiveTab is, not imported directly here).
 
 async function executeAction(tab, action) {
   console.log("Would execute action on tab", tab.id, ":", action);
-  // Stub - always reports success so the loop can be tested end-to-end
-  // for capture/detect/redact/analyze even before real execution exists.
   return { success: true };
 }
 
-// --- Main orchestration loop ----------------------------------------------
-
-const MAX_STEPS = 15; // safety cap so a stuck loop doesn't run forever
+const MAX_STEPS = 15;
 
 async function runAutomationLoop(taskDescription) {
   const { session_id } = await startSession(taskDescription);
@@ -293,7 +259,7 @@ async function runAutomationLoop(taskDescription) {
       }
 
       await executeAction(tab, action);
-      await new Promise((r) => setTimeout(r, 800)); // let the page settle
+      await new Promise((r) => setTimeout(r, 800));
     }
 
     console.warn(`Hit MAX_STEPS (${MAX_STEPS}) without completion.`);

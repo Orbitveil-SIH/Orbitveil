@@ -4955,7 +4955,7 @@ async function deleteSession(sessionId) {
   }
 }
 async function getActiveTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab) {
     throw new Error("No active tab found.");
   }

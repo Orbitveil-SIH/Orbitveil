@@ -62,7 +62,7 @@ async function ensureOffscreenDocument() {
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,
     reasons: ["BLOBS"],
-    justification: "Run on-device face detection (MediaPipe) and screenshot redaction, both of which require dynamic import(), canvas, and Image APIs unavailable in the service worker."
+    justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker."
   });
 }
 async function detectFacesViaOffscreen(dataUrl) {
@@ -223,10 +223,17 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
   });
   return result;
 }
+var DEBUG_OPEN_RAW_CAPTURE = true;
+var debugCaptureShown = false;
 async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
+  if (DEBUG_OPEN_RAW_CAPTURE && !debugCaptureShown) {
+    debugCaptureShown = true;
+    chrome.tabs.create({ url: `data:image/png;base64,${screenshotB64}` });
+  }
   const dataUrl = `data:image/png;base64,${screenshotB64}`;
   const { result: { boxes: faces }, dims } = await detectFacesViaOffscreen(dataUrl);
+  console.log(`[getRedactedImageAndDetections] captured screenshot: ${dims.width}x${dims.height}, faces found: ${faces.length}`);
   const pii = await getPiiDetectionsFromActiveTab(tab, dims.width, dims.height);
   const { redactedScreenshot, redactions } = await redactScreenshotViaOffscreen(screenshotB64, faces, pii);
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);

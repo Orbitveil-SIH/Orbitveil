@@ -69,8 +69,8 @@ async function getActiveTab() {
 }
 
 // --- Offscreen document management -----------------------------------
-// Face detection AND redaction can't run in the service worker (see note
-// at top of file), so we delegate both to an offscreen document instead.
+// Face detection can't run in the service worker (see note at top of
+// file), so we delegate it to an offscreen document instead.
 
 const OFFSCREEN_URL = "offscreen.html";
 
@@ -81,7 +81,7 @@ async function ensureOffscreenDocument() {
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,
     reasons: ["BLOBS"],
-    justification: "Run on-device face detection (MediaPipe) and screenshot redaction, both of which require dynamic import(), canvas, and Image APIs unavailable in the service worker.",
+    justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker.",
   });
 }
 
@@ -251,11 +251,27 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
   return result;
 }
 
+// DEBUG: set to true to visually inspect exactly what captureScreenshot()
+// actually captured, by opening it in a new tab as a data URL. This is
+// the ONLY way to confirm whether a face photo was in the visible
+// viewport at capture time - chrome.tabs.captureVisibleTab only grabs
+// what's on-screen, not the full scrollable page. Flip back to false
+// once face detection is confirmed working (leaving it on will open a
+// new tab on every single step of every run).
+const DEBUG_OPEN_RAW_CAPTURE = true;
+let debugCaptureShown = false;
+
 async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
 
+  if (DEBUG_OPEN_RAW_CAPTURE && !debugCaptureShown) {
+    debugCaptureShown = true;
+    chrome.tabs.create({ url: `data:image/png;base64,${screenshotB64}` });
+  }
+
   const dataUrl = `data:image/png;base64,${screenshotB64}`;
   const { result: { boxes: faces }, dims } = await detectFacesViaOffscreen(dataUrl);
+  console.log(`[getRedactedImageAndDetections] captured screenshot: ${dims.width}x${dims.height}, faces found: ${faces.length}`);
 
   const pii = await getPiiDetectionsFromActiveTab(tab, dims.width, dims.height);
 

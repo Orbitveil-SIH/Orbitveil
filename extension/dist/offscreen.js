@@ -4658,6 +4658,7 @@ async function getDetector() {
       runningMode: "IMAGE",
       minDetectionConfidence: 0.5
     });
+    console.log("[face-detector] detector loaded OK, model:", MODEL_URL);
     return detectorInstance;
   })();
   return detectorLoadingPromise;
@@ -4670,10 +4671,12 @@ async function base64ToImageBitmap(base64DataUrl) {
 async function detectFaces(base64Screenshot) {
   const detector = await getDetector();
   const imageBitmap = await base64ToImageBitmap(base64Screenshot);
+  console.log(`[face-detector] input bitmap: ${imageBitmap.width}x${imageBitmap.height}`);
   const t0 = performance.now();
   const result = detector.detect(imageBitmap);
   const t1 = performance.now();
   const inferenceMs = t1 - t0;
+  console.log(`[face-detector] raw detections: ${result.detections?.length ?? 0}`, result.detections);
   const boxes = (result.detections || []).map((d2) => {
     const bb = d2.boundingBox;
     const confidence = d2.categories?.[0]?.score ?? null;

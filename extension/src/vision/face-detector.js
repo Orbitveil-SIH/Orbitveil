@@ -47,6 +47,9 @@ async function getDetector() {
       runningMode: "IMAGE",
       minDetectionConfidence: 0.5,
     });
+    // DEBUG: confirms the model actually finished loading. If this never
+    // logs, getDetector() is hanging or throwing before this point.
+    console.log("[face-detector] detector loaded OK, model:", MODEL_URL);
     return detectorInstance;
   })();
 
@@ -76,10 +79,19 @@ export async function detectFaces(base64Screenshot) {
   const detector = await getDetector();
   const imageBitmap = await base64ToImageBitmap(base64Screenshot);
 
+  // DEBUG: confirms (a) the image actually decoded to real pixels, and
+  // (b) how many raw detections MediaPipe found before any of our own
+  // filtering. If width/height look wrong, the captured screenshot
+  // itself is the problem, not the detector. Remove once face detection
+  // is confirmed working end-to-end.
+  console.log(`[face-detector] input bitmap: ${imageBitmap.width}x${imageBitmap.height}`);
+
   const t0 = performance.now();
   const result = detector.detect(imageBitmap);
   const t1 = performance.now();
   const inferenceMs = t1 - t0;
+
+  console.log(`[face-detector] raw detections: ${result.detections?.length ?? 0}`, result.detections);
 
   const boxes = (result.detections || []).map((d) => {
     const bb = d.boundingBox;

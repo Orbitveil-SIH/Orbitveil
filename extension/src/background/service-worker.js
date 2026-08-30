@@ -1,8 +1,15 @@
 import { analyze } from "../utils/protocol.js";
 import { captureScreenshot } from "../content/capture.js";
 import { redactScreenshot } from "../vision/redactor.js";
-import { detectFaces } from "../vision/face-detector.js";
 import { getDomSummary } from "../utils/dom-summary.js";
+
+// NOTE: detectFaces is intentionally NOT imported here. MediaPipe's
+// internal WASM loading uses dynamic import(), which Chrome disallows
+// inside ServiceWorkerGlobalScope ("import() is disallowed on
+// ServiceWorkerGlobalScope"). Face detection instead runs inside an
+// Offscreen Document (offscreen.html/offscreen.js), which is a regular
+// page context that supports dynamic import, canvas, createImageBitmap,
+// etc. See ensureOffscreenDocument() / detectFacesViaOffscreen() below.
 
 const SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
 
@@ -57,6 +64,35 @@ async function getActiveTab() {
     throw new Error("No active tab found. Open a page in a normal browser window first.");
   }
   return tabs[0];
+}
+
+// --- Offscreen document management -----------------------------------
+// Face detection can't run in the service worker (see note at top of
+// file), so we delegate it to an offscreen document instead.
+
+const OFFSCREEN_URL = "offscreen.html";
+
+async function ensureOffscreenDocument() {
+  const existing = await chrome.offscreen.hasDocument?.();
+  if (existing) return;
+
+  await chrome.offscreen.createDocument({
+    url: OFFSCREEN_URL,
+    reasons: ["BLOBS"],
+    justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker.",
+  });
+}
+
+async function detectFacesViaOffscreen(dataUrl) {
+  await ensureOffscreenDocument();
+  const response = await chrome.runtime.sendMessage({
+    type: "OFFSCREEN_DETECT_FACES",
+    dataUrl,
+  });
+  if (!response || !response.ok) {
+    throw new Error(`Offscreen face detection failed: ${response?.error || "unknown error"}`);
+  }
+  return response.result; // { boxes, inferenceMs }
 }
 
 async function getDomSummaryFromActiveTab(tab) {
@@ -203,7 +239,7 @@ async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
 
   const dataUrl = `data:image/png;base64,${screenshotB64}`;
-  const { boxes: faces } = await detectFaces(dataUrl);
+  const { boxes: faces } = await detectFacesViaOffscreen(dataUrl);
 
   const dims = await new Promise((resolve, reject) => {
     const img = new Image();

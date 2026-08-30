@@ -15,221 +15,6 @@ async function captureScreenshot() {
   return base64Image;
 }
 
-// src/vision/redactor.js
-var FACE_BLUR_PX = 16;
-function loadScreenshot(screenshotB64) {
-  return new Promise((resolve, reject) => {
-    if (typeof screenshotB64 !== "string" || screenshotB64.length === 0) {
-      reject(
-        new Error("Invalid screenshot data.")
-      );
-      return;
-    }
-    const image = new Image();
-    image.onload = () => {
-      resolve(image);
-    };
-    image.onerror = () => {
-      reject(
-        new Error("Failed to decode screenshot.")
-      );
-    };
-    if (screenshotB64.startsWith("data:image")) {
-      image.src = screenshotB64;
-    } else {
-      image.src = `data:image/png;base64,${screenshotB64}`;
-    }
-  });
-}
-function createCanvas(width, height) {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
-}
-function clampRect(box, imageWidth, imageHeight) {
-  if (!box) {
-    return null;
-  }
-  const x = Number(box.x);
-  const y = Number(box.y);
-  const width = Number(box.width);
-  const height = Number(box.height);
-  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) {
-    return null;
-  }
-  if (width <= 0 || height <= 0) {
-    return null;
-  }
-  const left = Math.max(0, x);
-  const top = Math.max(0, y);
-  const right = Math.min(
-    imageWidth,
-    x + width
-  );
-  const bottom = Math.min(
-    imageHeight,
-    y + height
-  );
-  const clampedWidth = right - left;
-  const clampedHeight = bottom - top;
-  if (clampedWidth <= 0 || clampedHeight <= 0) {
-    return null;
-  }
-  return {
-    x: Math.round(left),
-    y: Math.round(top),
-    width: Math.round(clampedWidth),
-    height: Math.round(clampedHeight)
-  };
-}
-function blurFace(outputContext, sourceCanvas, face, imageWidth, imageHeight) {
-  const rect = clampRect(
-    face,
-    imageWidth,
-    imageHeight
-  );
-  if (!rect) {
-    return false;
-  }
-  const sx = Math.max(
-    0,
-    rect.x - FACE_BLUR_PX
-  );
-  const sy = Math.max(
-    0,
-    rect.y - FACE_BLUR_PX
-  );
-  const sw = Math.min(
-    imageWidth,
-    rect.x + rect.width + FACE_BLUR_PX
-  ) - sx;
-  const sh = Math.min(
-    imageHeight,
-    rect.y + rect.height + FACE_BLUR_PX
-  ) - sy;
-  outputContext.save();
-  outputContext.beginPath();
-  outputContext.rect(
-    rect.x,
-    rect.y,
-    rect.width,
-    rect.height
-  );
-  outputContext.clip();
-  outputContext.filter = `blur(${FACE_BLUR_PX}px)`;
-  outputContext.drawImage(
-    sourceCanvas,
-    sx,
-    sy,
-    sw,
-    sh,
-    sx,
-    sy,
-    sw,
-    sh
-  );
-  outputContext.filter = "none";
-  outputContext.restore();
-  return true;
-}
-function redactPII(context, pii, imageWidth, imageHeight) {
-  const rect = clampRect(
-    pii,
-    imageWidth,
-    imageHeight
-  );
-  if (!rect) {
-    return false;
-  }
-  context.fillStyle = "#000000";
-  context.fillRect(
-    rect.x,
-    rect.y,
-    rect.width,
-    rect.height
-  );
-  return true;
-}
-async function redactScreenshot(screenshotB64, faces = [], pii = []) {
-  const image = await loadScreenshot(
-    screenshotB64
-  );
-  const imageWidth = image.naturalWidth;
-  const imageHeight = image.naturalHeight;
-  if (imageWidth <= 0 || imageHeight <= 0) {
-    throw new Error(
-      "Screenshot has invalid dimensions."
-    );
-  }
-  const sourceCanvas = createCanvas(
-    imageWidth,
-    imageHeight
-  );
-  const outputCanvas = createCanvas(
-    imageWidth,
-    imageHeight
-  );
-  const sourceContext = sourceCanvas.getContext("2d");
-  const outputContext = outputCanvas.getContext("2d");
-  if (!sourceContext || !outputContext) {
-    throw new Error(
-      "Unable to create canvas rendering context."
-    );
-  }
-  sourceContext.drawImage(
-    image,
-    0,
-    0,
-    imageWidth,
-    imageHeight
-  );
-  outputContext.drawImage(
-    sourceCanvas,
-    0,
-    0
-  );
-  let faceRedactions = 0;
-  if (Array.isArray(faces)) {
-    for (const face of faces) {
-      const success = blurFace(
-        outputContext,
-        sourceCanvas,
-        face,
-        imageWidth,
-        imageHeight
-      );
-      if (success) {
-        faceRedactions++;
-      }
-    }
-  }
-  let piiRedactions = 0;
-  if (Array.isArray(pii)) {
-    for (const detection of pii) {
-      const success = redactPII(
-        outputContext,
-        detection,
-        imageWidth,
-        imageHeight
-      );
-      if (success) {
-        piiRedactions++;
-      }
-    }
-  }
-  const redactedScreenshot = outputCanvas.toDataURL(
-    "image/png"
-  );
-  return {
-    redactedScreenshot,
-    redactions: {
-      faces: faceRedactions,
-      pii: piiRedactions
-    }
-  };
-}
-
 // src/background/service-worker.js
 var SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
 async function startSession(taskDescription) {
@@ -277,7 +62,7 @@ async function ensureOffscreenDocument() {
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,
     reasons: ["BLOBS"],
-    justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker."
+    justification: "Run on-device face detection (MediaPipe) and screenshot redaction, both of which require dynamic import(), canvas, and Image APIs unavailable in the service worker."
   });
 }
 async function detectFacesViaOffscreen(dataUrl) {
@@ -290,6 +75,19 @@ async function detectFacesViaOffscreen(dataUrl) {
     throw new Error(`Offscreen face detection failed: ${response?.error || "unknown error"}`);
   }
   return response;
+}
+async function redactScreenshotViaOffscreen(screenshotB64, faces, pii) {
+  await ensureOffscreenDocument();
+  const response = await chrome.runtime.sendMessage({
+    type: "OFFSCREEN_REDACT_SCREENSHOT",
+    screenshotB64,
+    faces,
+    pii
+  });
+  if (!response || !response.ok) {
+    throw new Error(`Offscreen redaction failed: ${response?.error || "unknown error"}`);
+  }
+  return response.result;
 }
 async function getDomSummaryFromActiveTab(tab) {
   const [{ result }] = await chrome.scripting.executeScript({
@@ -430,7 +228,7 @@ async function getRedactedImageAndDetections(tab) {
   const dataUrl = `data:image/png;base64,${screenshotB64}`;
   const { result: { boxes: faces }, dims } = await detectFacesViaOffscreen(dataUrl);
   const pii = await getPiiDetectionsFromActiveTab(tab, dims.width, dims.height);
-  const { redactedScreenshot, redactions } = await redactScreenshot(screenshotB64, faces, pii);
+  const { redactedScreenshot, redactions } = await redactScreenshotViaOffscreen(screenshotB64, faces, pii);
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);
   const base64Prefix = "base64,";
   const idx = redactedScreenshot.indexOf(base64Prefix);

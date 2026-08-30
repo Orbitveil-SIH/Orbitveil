@@ -1,15 +1,17 @@
 import { analyze } from "../utils/protocol.js";
 import { captureScreenshot } from "../content/capture.js";
-import { redactScreenshot } from "../vision/redactor.js";
 import { getDomSummary } from "../utils/dom-summary.js";
 
-// NOTE: detectFaces is intentionally NOT imported here. MediaPipe's
-// internal WASM loading uses dynamic import(), which Chrome disallows
-// inside ServiceWorkerGlobalScope ("import() is disallowed on
-// ServiceWorkerGlobalScope"). Face detection instead runs inside an
-// Offscreen Document (offscreen.html/offscreen.js), which is a regular
-// page context that supports dynamic import, canvas, createImageBitmap,
-// etc. See ensureOffscreenDocument() / detectFacesViaOffscreen() below.
+// NOTE: detectFaces and redactScreenshot are intentionally NOT imported
+// here. MediaPipe's internal WASM loading uses dynamic import(), which
+// Chrome disallows inside ServiceWorkerGlobalScope ("import() is
+// disallowed on ServiceWorkerGlobalScope"), and redactor.js separately
+// relies on `new Image()` and `document.createElement("canvas")`, which
+// don't exist in ServiceWorkerGlobalScope either (no DOM there). Both
+// instead run inside an Offscreen Document (offscreen.html/offscreen.js),
+// which is a regular page context that supports dynamic import, canvas,
+// createImageBitmap, Image, etc. See ensureOffscreenDocument() /
+// detectFacesViaOffscreen() / redactScreenshotViaOffscreen() below.
 
 const SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
 
@@ -67,8 +69,8 @@ async function getActiveTab() {
 }
 
 // --- Offscreen document management -----------------------------------
-// Face detection can't run in the service worker (see note at top of
-// file), so we delegate it to an offscreen document instead.
+// Face detection AND redaction can't run in the service worker (see note
+// at top of file), so we delegate both to an offscreen document instead.
 
 const OFFSCREEN_URL = "offscreen.html";
 
@@ -79,7 +81,7 @@ async function ensureOffscreenDocument() {
   await chrome.offscreen.createDocument({
     url: OFFSCREEN_URL,
     reasons: ["BLOBS"],
-    justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker.",
+    justification: "Run on-device face detection (MediaPipe) and screenshot redaction, both of which require dynamic import(), canvas, and Image APIs unavailable in the service worker.",
   });
 }
 
@@ -93,6 +95,20 @@ async function detectFacesViaOffscreen(dataUrl) {
     throw new Error(`Offscreen face detection failed: ${response?.error || "unknown error"}`);
   }
   return response; // { ok, result: { boxes, inferenceMs }, dims: { width, height } }
+}
+
+async function redactScreenshotViaOffscreen(screenshotB64, faces, pii) {
+  await ensureOffscreenDocument();
+  const response = await chrome.runtime.sendMessage({
+    type: "OFFSCREEN_REDACT_SCREENSHOT",
+    screenshotB64,
+    faces,
+    pii,
+  });
+  if (!response || !response.ok) {
+    throw new Error(`Offscreen redaction failed: ${response?.error || "unknown error"}`);
+  }
+  return response.result; // { redactedScreenshot, redactions }
 }
 
 async function getDomSummaryFromActiveTab(tab) {
@@ -243,7 +259,7 @@ async function getRedactedImageAndDetections(tab) {
 
   const pii = await getPiiDetectionsFromActiveTab(tab, dims.width, dims.height);
 
-  const { redactedScreenshot, redactions } = await redactScreenshot(screenshotB64, faces, pii);
+  const { redactedScreenshot, redactions } = await redactScreenshotViaOffscreen(screenshotB64, faces, pii);
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);
 
   const base64Prefix = "base64,";

@@ -4689,6 +4689,221 @@ async function detectFaces(base64Screenshot) {
   return { boxes, inferenceMs };
 }
 
+// src/vision/redactor.js
+var FACE_BLUR_PX = 16;
+function loadScreenshot(screenshotB64) {
+  return new Promise((resolve, reject) => {
+    if (typeof screenshotB64 !== "string" || screenshotB64.length === 0) {
+      reject(
+        new Error("Invalid screenshot data.")
+      );
+      return;
+    }
+    const image = new Image();
+    image.onload = () => {
+      resolve(image);
+    };
+    image.onerror = () => {
+      reject(
+        new Error("Failed to decode screenshot.")
+      );
+    };
+    if (screenshotB64.startsWith("data:image")) {
+      image.src = screenshotB64;
+    } else {
+      image.src = `data:image/png;base64,${screenshotB64}`;
+    }
+  });
+}
+function createCanvas(width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
+function clampRect(box, imageWidth, imageHeight) {
+  if (!box) {
+    return null;
+  }
+  const x2 = Number(box.x);
+  const y2 = Number(box.y);
+  const width = Number(box.width);
+  const height = Number(box.height);
+  if (!Number.isFinite(x2) || !Number.isFinite(y2) || !Number.isFinite(width) || !Number.isFinite(height)) {
+    return null;
+  }
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+  const left = Math.max(0, x2);
+  const top = Math.max(0, y2);
+  const right = Math.min(
+    imageWidth,
+    x2 + width
+  );
+  const bottom = Math.min(
+    imageHeight,
+    y2 + height
+  );
+  const clampedWidth = right - left;
+  const clampedHeight = bottom - top;
+  if (clampedWidth <= 0 || clampedHeight <= 0) {
+    return null;
+  }
+  return {
+    x: Math.round(left),
+    y: Math.round(top),
+    width: Math.round(clampedWidth),
+    height: Math.round(clampedHeight)
+  };
+}
+function blurFace(outputContext, sourceCanvas, face, imageWidth, imageHeight) {
+  const rect = clampRect(
+    face,
+    imageWidth,
+    imageHeight
+  );
+  if (!rect) {
+    return false;
+  }
+  const sx = Math.max(
+    0,
+    rect.x - FACE_BLUR_PX
+  );
+  const sy = Math.max(
+    0,
+    rect.y - FACE_BLUR_PX
+  );
+  const sw = Math.min(
+    imageWidth,
+    rect.x + rect.width + FACE_BLUR_PX
+  ) - sx;
+  const sh2 = Math.min(
+    imageHeight,
+    rect.y + rect.height + FACE_BLUR_PX
+  ) - sy;
+  outputContext.save();
+  outputContext.beginPath();
+  outputContext.rect(
+    rect.x,
+    rect.y,
+    rect.width,
+    rect.height
+  );
+  outputContext.clip();
+  outputContext.filter = `blur(${FACE_BLUR_PX}px)`;
+  outputContext.drawImage(
+    sourceCanvas,
+    sx,
+    sy,
+    sw,
+    sh2,
+    sx,
+    sy,
+    sw,
+    sh2
+  );
+  outputContext.filter = "none";
+  outputContext.restore();
+  return true;
+}
+function redactPII(context, pii, imageWidth, imageHeight) {
+  const rect = clampRect(
+    pii,
+    imageWidth,
+    imageHeight
+  );
+  if (!rect) {
+    return false;
+  }
+  context.fillStyle = "#000000";
+  context.fillRect(
+    rect.x,
+    rect.y,
+    rect.width,
+    rect.height
+  );
+  return true;
+}
+async function redactScreenshot(screenshotB64, faces = [], pii = []) {
+  const image = await loadScreenshot(
+    screenshotB64
+  );
+  const imageWidth = image.naturalWidth;
+  const imageHeight = image.naturalHeight;
+  if (imageWidth <= 0 || imageHeight <= 0) {
+    throw new Error(
+      "Screenshot has invalid dimensions."
+    );
+  }
+  const sourceCanvas = createCanvas(
+    imageWidth,
+    imageHeight
+  );
+  const outputCanvas = createCanvas(
+    imageWidth,
+    imageHeight
+  );
+  const sourceContext = sourceCanvas.getContext("2d");
+  const outputContext = outputCanvas.getContext("2d");
+  if (!sourceContext || !outputContext) {
+    throw new Error(
+      "Unable to create canvas rendering context."
+    );
+  }
+  sourceContext.drawImage(
+    image,
+    0,
+    0,
+    imageWidth,
+    imageHeight
+  );
+  outputContext.drawImage(
+    sourceCanvas,
+    0,
+    0
+  );
+  let faceRedactions = 0;
+  if (Array.isArray(faces)) {
+    for (const face of faces) {
+      const success = blurFace(
+        outputContext,
+        sourceCanvas,
+        face,
+        imageWidth,
+        imageHeight
+      );
+      if (success) {
+        faceRedactions++;
+      }
+    }
+  }
+  let piiRedactions = 0;
+  if (Array.isArray(pii)) {
+    for (const detection of pii) {
+      const success = redactPII(
+        outputContext,
+        detection,
+        imageWidth,
+        imageHeight
+      );
+      if (success) {
+        piiRedactions++;
+      }
+    }
+  }
+  const redactedScreenshot = outputCanvas.toDataURL(
+    "image/png"
+  );
+  return {
+    redactedScreenshot,
+    redactions: {
+      faces: faceRedactions,
+      pii: piiRedactions
+    }
+  };
+}
+
 // src/offscreen/offscreen.js
 function getImageDimensions(dataUrl) {
   return new Promise((resolve, reject) => {
@@ -4707,6 +4922,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           getImageDimensions(message.dataUrl)
         ]);
         sendResponse({ ok: true, result, dims });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+  if (message.type === "OFFSCREEN_REDACT_SCREENSHOT") {
+    (async () => {
+      try {
+        const { screenshotB64, faces, pii } = message;
+        const result = await redactScreenshot(screenshotB64, faces, pii);
+        sendResponse({ ok: true, result });
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
       }

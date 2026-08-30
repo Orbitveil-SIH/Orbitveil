@@ -8,6 +8,7 @@ export async function analyze(taskDescription, domSummary, redactedImageB64) {
       dom_summary: domSummary,
       redacted_image_b64: redactedImageB64,
     }),
+  });
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     throw new Error(

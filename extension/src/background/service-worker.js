@@ -13,6 +13,7 @@ async function getDomSummaryFromPage() {
   if (!tab) {
     throw new Error("No active tab found.");
   }
+  console.log("Selected tab:", tab.id, tab.url);
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {

@@ -1,5 +1,4 @@
 import { analyze } from "../utils/protocol.js";
-import { getDomSummary } from "../utils/dom-summary.js";
 import { captureScreenshot } from "../content/capture.js";
 import { redactScreenshot } from "../vision/redactor.js";
 
@@ -8,6 +7,28 @@ async function getRedactedImage() {
   const result = await redactScreenshot(screenshotB64);
   return result.redactedScreenshot;
 }
+async function getDomSummaryFromPage() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => {
+      const elements = document.querySelectorAll("input, textarea, select, button, a");
+      const summary = [];
+      elements.forEach((el, index) => {
+        summary.push({
+          index,
+          tag: el.tagName.toLowerCase(),
+          type: el.getAttribute("type") || null,
+          name: el.getAttribute("name") || null,
+          id: el.getAttribute("id") || null,
+          placeholder: el.getAttribute("placeholder") || null,
+        });
+      });
+      return summary;
+    },
+  });
+  return result;
+}
 async function executeAction(action) {
   // TODO: hand off to executor.js once it exists
   console.log("Would execute action:", action);
@@ -15,7 +36,7 @@ async function executeAction(action) {
 
 async function runAutomationLoop(taskDescription) {
   while (true) {
-    const domSummaryRaw = getDomSummary();
+    const domSummaryRaw = await getDomSummaryFromPage();
     const domSummary = JSON.stringify(domSummaryRaw);
     const redactedImageB64 = await getRedactedImage();
 

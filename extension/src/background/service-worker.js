@@ -35,3 +35,4 @@ async function runAutomationLoop(taskDescription) {
     await new Promise((r) => setTimeout(r, 800));
   }
 }
+self.runAutomationLoop = runAutomationLoop;

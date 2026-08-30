@@ -92,7 +92,7 @@ async function detectFacesViaOffscreen(dataUrl) {
   if (!response || !response.ok) {
     throw new Error(`Offscreen face detection failed: ${response?.error || "unknown error"}`);
   }
-  return response.result; // { boxes, inferenceMs }
+  return response; // { ok, result: { boxes, inferenceMs }, dims: { width, height } }
 }
 
 async function getDomSummaryFromActiveTab(tab) {
@@ -239,14 +239,7 @@ async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
 
   const dataUrl = `data:image/png;base64,${screenshotB64}`;
-  const { boxes: faces } = await detectFacesViaOffscreen(dataUrl);
-
-  const dims = await new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
+  const { result: { boxes: faces }, dims } = await detectFacesViaOffscreen(dataUrl);
 
   const pii = await getPiiDetectionsFromActiveTab(tab, dims.width, dims.height);
 

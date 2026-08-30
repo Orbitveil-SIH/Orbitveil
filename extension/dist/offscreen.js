@@ -4690,9 +4690,27 @@ async function detectFaces(base64Screenshot) {
 }
 
 // src/offscreen/offscreen.js
+function getImageDimensions(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "OFFSCREEN_DETECT_FACES") {
-    detectFaces(message.dataUrl).then((result) => sendResponse({ ok: true, result })).catch((err) => sendResponse({ ok: false, error: err.message }));
+    (async () => {
+      try {
+        const [result, dims] = await Promise.all([
+          detectFaces(message.dataUrl),
+          getImageDimensions(message.dataUrl)
+        ]);
+        sendResponse({ ok: true, result, dims });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
     return true;
   }
 });

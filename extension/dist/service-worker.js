@@ -289,7 +289,7 @@ async function detectFacesViaOffscreen(dataUrl) {
   if (!response || !response.ok) {
     throw new Error(`Offscreen face detection failed: ${response?.error || "unknown error"}`);
   }
-  return response.result;
+  return response;
 }
 async function getDomSummaryFromActiveTab(tab) {
   const [{ result }] = await chrome.scripting.executeScript({
@@ -428,13 +428,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
 async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
   const dataUrl = `data:image/png;base64,${screenshotB64}`;
-  const { boxes: faces } = await detectFacesViaOffscreen(dataUrl);
-  const dims = await new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
+  const { result: { boxes: faces }, dims } = await detectFacesViaOffscreen(dataUrl);
   const pii = await getPiiDetectionsFromActiveTab(tab, dims.width, dims.height);
   const { redactedScreenshot, redactions } = await redactScreenshot(screenshotB64, faces, pii);
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);

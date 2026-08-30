@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SIH Browser Agent</title>
+<style>
+  body {
+    width: 320px;
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+    padding: 14px;
+    margin: 0;
+    background: #1a1a1a;
+    color: #eee;
+  }
+  h1 {
+    font-size: 15px;
+    margin: 0 0 10px 0;
+  }
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 60px;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #2a2a2a;
+    color: #eee;
+    font-size: 13px;
+    resize: vertical;
+  }
+  .buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  button {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #startBtn {
+    background: #4a7dff;
+    color: white;
+  }
+  #startBtn:disabled {
+    background: #555;
+    cursor: not-allowed;
+  }
+  #stopBtn {
+    background: #444;
+    color: #eee;
+  }
+  #status {
+    margin-top: 14px;
+    padding: 10px;
+    border-radius: 6px;
+    background: #2a2a2a;
+    font-size: 12px;
+    min-height: 40px;
+    white-space: pre-wrap;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .status-idle { color: #888; }
+  .status-running { color: #4a9dff; }
+  .status-done { color: #4ade80; }
+  .status-error { color: #f87171; }
+</style>
+</head>
+<body>
+
+<h1>SIH Browser Agent</h1>
+
+<textarea id="taskInput" placeholder="e.g. Fill in the bio and favorite color fields, then submit."></textarea>
+
+<div class="buttons">
+  <button id="startBtn">Start</button>
+  <button id="stopBtn" disabled>Stop</button>
+</div>
+
+<div id="status" class="status-idle">Idle. Describe a task and click Start.</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

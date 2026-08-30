@@ -4955,11 +4955,11 @@ async function deleteSession(sessionId) {
   }
 }
 async function getActiveTab() {
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  if (!tab) {
-    throw new Error("No active tab found.");
+  const tabs = await chrome.tabs.query({ active: true, windowType: "normal" });
+  if (!tabs || tabs.length === 0) {
+    throw new Error("No active tab found. Open a page in a normal browser window first.");
   }
-  return tab;
+  return tabs[0];
 }
 async function getDomSummaryFromActiveTab(tab) {
   const [{ result }] = await chrome.scripting.executeScript({
@@ -5110,44 +5110,91 @@ async function getRedactedImageAndDetections(tab) {
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);
   const base64Prefix = "base64,";
   const idx = redactedScreenshot.indexOf(base64Prefix);
-  return redactedScreenshot.slice(idx + base64Prefix.length);
+  return { imageB64: redactedScreenshot.slice(idx + base64Prefix.length), redactions };
 }
 async function executeAction(tab, action) {
   console.log("Would execute action on tab", tab.id, ":", action);
   return { success: true };
 }
 var MAX_STEPS = 15;
-async function runAutomationLoop(taskDescription) {
+var stopRequested = false;
+async function runAutomationLoop(taskDescription, onProgress = () => {
+}) {
+  stopRequested = false;
+  onProgress("Starting session...");
   const { session_id } = await startSession(taskDescription);
   console.log("Session started:", session_id);
   try {
     for (let step = 1; step <= MAX_STEPS; step++) {
+      if (stopRequested) {
+        onProgress("Stopped by user.");
+        return { status: "stopped", steps: step - 1 };
+      }
+      onProgress(`Step ${step}: reading page...`);
       const tab = await getActiveTab();
       const domSummaryRaw = await getDomSummaryFromActiveTab(tab);
       const domSummary = JSON.stringify(domSummaryRaw);
-      const redactedImageB64 = await getRedactedImageAndDetections(tab);
+      onProgress(`Step ${step}: detecting faces & PII...`);
+      const { imageB64: redactedImageB64, redactions } = await getRedactedImageAndDetections(tab);
+      onProgress(`Step ${step}: redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s). Analyzing...`);
       let result;
       try {
         result = await stepSession(session_id, domSummary, redactedImageB64);
       } catch (err) {
         console.error("Loop stopped on error:", err);
+        onProgress(`Error: ${err.message}`);
         return { status: "error", error: err.message };
       }
       const { action, status } = result;
       console.log(`Step ${step}:`, action);
       if (status === "error") {
+        onProgress("Server marked session as errored.");
         return { status: "error", error: "Server marked session as errored." };
       }
       if (action.type === "done") {
+        onProgress("Done!");
         return { status: "done", steps: step };
       }
+      onProgress(`Step ${step}: performing ${action.type} on ${action.target || "page"}...`);
       await executeAction(tab, action);
       await new Promise((r2) => setTimeout(r2, 800));
     }
-    console.warn(`Hit MAX_STEPS (${MAX_STEPS}) without completion.`);
+    onProgress(`Reached max steps (${MAX_STEPS}) without completion.`);
     return { status: "max_steps_reached" };
   } finally {
     await deleteSession(session_id);
   }
 }
 self.runAutomationLoop = runAutomationLoop;
+var currentRunPromise = null;
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "START_TASK") {
+    if (currentRunPromise) {
+      sendResponse({ started: false, error: "A task is already running." });
+      return false;
+    }
+    currentRunPromise = runAutomationLoop(message.taskDescription, (status) => {
+      chrome.runtime.sendMessage({ type: "PROGRESS", status }).catch(() => {
+      });
+    }).then((result) => {
+      chrome.runtime.sendMessage({ type: "TASK_DONE", result }).catch(() => {
+      });
+    }).catch((err) => {
+      chrome.runtime.sendMessage({ type: "TASK_DONE", result: { status: "error", error: err.message } }).catch(() => {
+      });
+    }).finally(() => {
+      currentRunPromise = null;
+    });
+    sendResponse({ started: true });
+    return false;
+  }
+  if (message.type === "IS_RUNNING") {
+    sendResponse({ running: currentRunPromise !== null });
+    return false;
+  }
+  if (message.type === "STOP_TASK") {
+    stopRequested = true;
+    sendResponse({ stopping: true });
+    return false;
+  }
+});

@@ -8,7 +8,8 @@ async function getRedactedImage() {
   return result.redactedScreenshot;
 }
 async function getDomSummaryFromPage() {
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const tabs = await chrome.tabs.query({});
+  const tab = tabs.find((t) => t.url && t.url.startsWith("http"));
   if (!tab) {
     throw new Error("No active tab found.");
   }

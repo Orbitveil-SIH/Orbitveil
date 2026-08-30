@@ -10,7 +10,7 @@ import { getDomSummary } from "../utils/dom-summary.js";
 // inline fetch calls with imports from protocol.js instead. Kept here
 // inline for now so this loop is unblocked immediately.
 
-const SERVER_BASE_URL = "https://opulent-doodle-5vg5xx56gqr27456-8000.app.github.dev";
+const SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
 
 async function startSession(taskDescription) {
   const res = await fetch(`${SERVER_BASE_URL}/session/start`, {

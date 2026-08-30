@@ -4922,7 +4922,7 @@ async function detectFaces(base64Screenshot) {
 }
 
 // src/background/service-worker.js
-var SERVER_BASE_URL = "https://opulent-doodle-5vg5xx56gqr27456-8000.app.github.dev";
+var SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
 async function startSession(taskDescription) {
   const res = await fetch(`${SERVER_BASE_URL}/session/start`, {
     method: "POST",

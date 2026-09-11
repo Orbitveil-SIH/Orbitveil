@@ -303,6 +303,8 @@ async function getRedactedImageAndDetections(tab) {
 
   const screenshotB64 = await captureScreenshot();
 
+  console.log(`[Benchmark] Screenshot capture: ${(performance.now() - localStart).toFixed(2)} ms`);
+
   if (DEBUG_OPEN_RAW_CAPTURE && !debugCaptureShown) {
     debugCaptureShown = true;
     chrome.tabs.create({ url: `data:image/png;base64,${screenshotB64}` });
@@ -340,6 +342,7 @@ const piiScanMs = piiEnd - piiStart;
 console.log(
   `[Benchmark] PII scanning: ${piiScanMs.toFixed(2)} ms`
 );
+console.log("[Eval] PII detections:", JSON.stringify(pii, null, 2));
  // const { redactedScreenshot, redactions } = await redactScreenshotViaOffscreen(screenshotB64, faces, pii);
   const redactionStart = performance.now();
 
@@ -424,7 +427,9 @@ async function runAutomationLoop(taskDescription, onProgress = () => {}) {
 
       //let result;
       /*try {
+        const netStart = performance.now();
         result = await stepSession(session_id, domSummary, redactedImageB64);
+        console.log(`[Benchmark] Network round trip: ${(performance.now() - netStart).toFixed(2)} ms`);
       } catch (err) {*/
       let result;
       try {

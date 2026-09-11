@@ -366,16 +366,47 @@ var debugCaptureShown = false;
 var DEBUG_OPEN_REDACTED_CAPTURE = true;
 var debugRedactedCaptureShown = false;
 async function getRedactedImageAndDetections(tab) {
+  const localStart = performance.now();
   const screenshotB64 = await captureScreenshot();
+  console.log(`[Benchmark] Screenshot capture: ${(performance.now() - localStart).toFixed(2)} ms`);
   if (DEBUG_OPEN_RAW_CAPTURE && !debugCaptureShown) {
     debugCaptureShown = true;
     chrome.tabs.create({ url: `data:image/png;base64,${screenshotB64}` });
   }
   const dataUrl = `data:image/png;base64,${screenshotB64}`;
+  const faceStart = performance.now();
   const { result: { boxes: faces }, dims } = await detectFacesViaOffscreen(dataUrl);
-  console.log(`[getRedactedImageAndDetections] captured screenshot: ${dims.width}x${dims.height}, faces found: ${faces.length}`);
-  const pii = await getPiiDetectionsFromActiveTab(tab, dims.width, dims.height);
-  const { redactedScreenshot, redactions } = await redactScreenshotViaOffscreen(screenshotB64, faces, pii);
+  const faceEnd = performance.now();
+  const faceDetectionMs = faceEnd - faceStart;
+  console.log(
+    `[Benchmark] Face detection: ${faceDetectionMs.toFixed(2)} ms`
+  );
+  console.log(
+    `[getRedactedImageAndDetections] captured screenshot: ${dims.width}x${dims.height}, faces found: ${faces.length}`
+  );
+  const piiStart = performance.now();
+  const pii = await getPiiDetectionsFromActiveTab(
+    tab,
+    dims.width,
+    dims.height
+  );
+  const piiEnd = performance.now();
+  const piiScanMs = piiEnd - piiStart;
+  console.log(
+    `[Benchmark] PII scanning: ${piiScanMs.toFixed(2)} ms`
+  );
+  console.log("[Eval] PII detections:", JSON.stringify(pii, null, 2));
+  const redactionStart = performance.now();
+  const { redactedScreenshot, redactions } = await redactScreenshotViaOffscreen(
+    screenshotB64,
+    faces,
+    pii
+  );
+  const redactionEnd = performance.now();
+  const redactionMs = redactionEnd - redactionStart;
+  console.log(
+    `[Benchmark] Redaction: ${redactionMs.toFixed(2)} ms`
+  );
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);
   if (DEBUG_OPEN_REDACTED_CAPTURE && !debugRedactedCaptureShown) {
     debugRedactedCaptureShown = true;
@@ -383,6 +414,11 @@ async function getRedactedImageAndDetections(tab) {
   }
   const base64Prefix = "base64,";
   const idx = redactedScreenshot.indexOf(base64Prefix);
+  const localEnd = performance.now();
+  const localProcessingMs = localEnd - localStart;
+  console.log(
+    `[Benchmark] Total local processing: ${localProcessingMs.toFixed(2)} ms`
+  );
   return { imageB64: redactedScreenshot.slice(idx + base64Prefix.length), redactions };
 }
 async function executeAction(tab, action) {
@@ -424,7 +460,17 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
       onProgress(`Step ${step}: redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s). Analyzing...`);
       let result;
       try {
-        result = await stepSession(session_id, domSummary, redactedImageB64);
+        const serverStart = performance.now();
+        result = await stepSession(
+          session_id,
+          domSummary,
+          redactedImageB64
+        );
+        const serverEnd = performance.now();
+        const serverRoundTripMs = serverEnd - serverStart;
+        console.log(
+          `[Benchmark] Server round trip: ${serverRoundTripMs.toFixed(2)} ms`
+        );
       } catch (err) {
         console.error("Loop stopped on error:", err);
         onProgress(`Error: ${err.message}`);
@@ -441,7 +487,13 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
         return { status: "done", steps: step };
       }
       onProgress(`Step ${step}: performing ${action.type} on ${action.target || "page"}...`);
+      const actionStart = performance.now();
       await executeAction(tab, action);
+      const actionEnd = performance.now();
+      const actionExecutionMs = actionEnd - actionStart;
+      console.log(
+        `[Benchmark] Action execution: ${actionExecutionMs.toFixed(2)} ms`
+      );
       await new Promise((r) => setTimeout(r, 800));
     }
     onProgress(`Reached max steps (${MAX_STEPS}) without completion.`);

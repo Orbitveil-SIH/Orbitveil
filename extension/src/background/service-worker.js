@@ -66,7 +66,37 @@ async function getActiveTab() {
   if (!tabs || tabs.length === 0) {
     throw new Error("No active tab found. Open a page in a normal browser window first.");
   }
-  return tabs[0];
+
+  // Guard against picking up devtools://, chrome://, or chrome-extension://
+  // tabs - these can get reported as the "active" tab if a DevTools window
+  // (e.g. one you opened to inspect the offscreen document) has focus when
+  // the loop runs. Real automation targets are always http(s)/file pages.
+  const isValidTarget = (tab) =>
+    tab.url && /^(https?|file):\/\//.test(tab.url);
+
+  if (isValidTarget(tabs[0])) {
+    return tabs[0];
+  }
+
+  // Fallback: search ALL normal-window tabs for the most recently active
+  // valid webpage, in case the truly-active one is devtools/chrome/etc.
+  const allTabs = await chrome.tabs.query({ windowType: "normal" });
+  const validTabs = allTabs.filter(isValidTarget);
+  if (validTabs.length > 0) {
+    // lastAccessed is available in recent Chrome versions; fall back to
+    // the first match if not present.
+    validTabs.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
+    console.warn(
+      `[getActiveTab] Active tab was "${tabs[0].url}" (not a webpage) - ` +
+      `falling back to "${validTabs[0].url}" instead.`
+    );
+    return validTabs[0];
+  }
+
+  throw new Error(
+    `No valid webpage tab found. Active tab was "${tabs[0].url}" - ` +
+    `close any DevTools windows and focus your demo page before clicking Start.`
+  );
 }
 
 // --- Offscreen document management -----------------------------------

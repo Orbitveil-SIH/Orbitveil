@@ -171,7 +171,22 @@ async function getActiveTab() {
   if (!tabs || tabs.length === 0) {
     throw new Error("No active tab found. Open a page in a normal browser window first.");
   }
-  return tabs[0];
+  const isValidTarget = (tab) => tab.url && /^(https?|file):\/\//.test(tab.url);
+  if (isValidTarget(tabs[0])) {
+    return tabs[0];
+  }
+  const allTabs = await chrome.tabs.query({ windowType: "normal" });
+  const validTabs = allTabs.filter(isValidTarget);
+  if (validTabs.length > 0) {
+    validTabs.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
+    console.warn(
+      `[getActiveTab] Active tab was "${tabs[0].url}" (not a webpage) - falling back to "${validTabs[0].url}" instead.`
+    );
+    return validTabs[0];
+  }
+  throw new Error(
+    `No valid webpage tab found. Active tab was "${tabs[0].url}" - close any DevTools windows and focus your demo page before clicking Start.`
+  );
 }
 var OFFSCREEN_URL = "offscreen.html";
 async function ensureOffscreenDocument() {

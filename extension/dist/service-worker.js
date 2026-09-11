@@ -363,7 +363,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
 }
 var DEBUG_OPEN_RAW_CAPTURE = false;
 var debugCaptureShown = false;
-var DEBUG_OPEN_REDACTED_CAPTURE = true;
+var DEBUG_OPEN_REDACTED_CAPTURE = false;
 var debugRedactedCaptureShown = false;
 async function getRedactedImageAndDetections(tab) {
   const localStart = performance.now();

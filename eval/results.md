@@ -47,11 +47,11 @@ in this run.
 
 ## 3. Redaction Precision (spatial accuracy)
 
-| Metric | Result |
-|---|---|
-| Face blur correctly aligned to bounding box | TBD |
-| PII black-box correctly aligned to field region | TBD |
-| Any visible leakage at redaction edges | TBD |
+| Face blur correctly aligned to bounding box | Yes — blur box tightly matches the avatar's circular boundary, no visible unblurred edge |
+| PII black-box correctly aligned to field region | Yes — black boxes fully cover password/email/phone/card/name field text, no leaked characters at edges |
+| Any visible leakage at redaction edges | None observed |
+| $ grep -n "DEBUG_OPEN_REDACTED_CAPTURE = " extension/src/background/service-worker.jsBUG_OPEN_REDACTED_CAPTURE = " extension/src/background/service-worker.js
+296:const DEBUG_OPEN_REDACTED_CAPTURE = true;|
 
 ---
 

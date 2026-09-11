@@ -293,7 +293,7 @@ let debugCaptureShown = false;
 // screenshot - flip this to true to visually confirm blurring/blackout
 // is actually happening before it is sent to the server. Flip back to
 // false before the live demo.
-const DEBUG_OPEN_REDACTED_CAPTURE = true;
+const DEBUG_OPEN_REDACTED_CAPTURE = false;
 let debugRedactedCaptureShown = false;
 
 //async function getRedactedImageAndDetections(tab) {

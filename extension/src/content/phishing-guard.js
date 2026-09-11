@@ -117,11 +117,18 @@
       "name", "email", "tel", "cc-number", "new-password", "current-password",
     ]);
 
-    const els = document.querySelectorAll("input, textarea");
+    const els = document.querySelectorAll("input, textarea, select, img");
     const sensitive = [];
     const malicious = isMaliciousDemoPage();
 
     els.forEach((el) => {
+      if (el.tagName && el.tagName.toLowerCase() === "img") {
+        if (el.id === "profile-photo" || el.alt?.toLowerCase().includes("photo")) {
+          sensitive.push(el);
+        }
+        return;
+      }
+
       const type = (el.getAttribute("type") || "").toLowerCase();
       const autocomplete = (el.getAttribute("autocomplete") || "").toLowerCase();
       const name = (el.getAttribute("name") || "").toLowerCase();
@@ -148,17 +155,56 @@
 
   function redactElement(el) {
     if (el.hasAttribute("data-orbitveil-guarded")) return;
-    el.dataset.orbitveilOriginalFilter = el.style.filter || "";
-    el.style.filter = "blur(6px)";
+
+    const originalFilter = el.style.filter || "";
+    const originalPointerEvents = el.style.pointerEvents || "";
+    const originalOpacity = el.style.opacity || "";
+    const originalBackground = el.style.background || "";
+    const originalColor = el.style.color || "";
+    const originalUserSelect = el.style.userSelect || "";
+    const originalVisibility = el.style.visibility || "";
+
+    el.dataset.orbitveilOriginalFilter = originalFilter;
+    el.dataset.orbitveilOriginalPointerEvents = originalPointerEvents;
+    el.dataset.orbitveilOriginalOpacity = originalOpacity;
+    el.dataset.orbitveilOriginalBackground = originalBackground;
+    el.dataset.orbitveilOriginalColor = originalColor;
+    el.dataset.orbitveilOriginalUserSelect = originalUserSelect;
+    el.dataset.orbitveilOriginalVisibility = originalVisibility;
+
+    if (el.tagName && el.tagName.toLowerCase() === "img") {
+      el.style.filter = "blur(14px) grayscale(1) brightness(0.35)";
+      el.style.opacity = "0.16";
+    } else {
+      el.style.filter = "blur(6px)";
+      el.style.background = "rgba(0, 0, 0, 0.9)";
+      el.style.color = "transparent";
+      el.style.userSelect = "none";
+      el.style.opacity = "0.35";
+    }
+
     el.style.pointerEvents = "none";
+    el.style.visibility = "visible";
     el.setAttribute("data-orbitveil-guarded", "true");
   }
 
   function restoreElement(el) {
     el.style.filter = el.dataset.orbitveilOriginalFilter || "";
-    el.style.pointerEvents = "";
+    el.style.pointerEvents = el.dataset.orbitveilOriginalPointerEvents || "";
+    el.style.opacity = el.dataset.orbitveilOriginalOpacity || "";
+    el.style.background = el.dataset.orbitveilOriginalBackground || "";
+    el.style.color = el.dataset.orbitveilOriginalColor || "";
+    el.style.userSelect = el.dataset.orbitveilOriginalUserSelect || "";
+    el.style.visibility = el.dataset.orbitveilOriginalVisibility || "";
     el.removeAttribute("data-orbitveil-guarded");
+
     delete el.dataset.orbitveilOriginalFilter;
+    delete el.dataset.orbitveilOriginalPointerEvents;
+    delete el.dataset.orbitveilOriginalOpacity;
+    delete el.dataset.orbitveilOriginalBackground;
+    delete el.dataset.orbitveilOriginalColor;
+    delete el.dataset.orbitveilOriginalUserSelect;
+    delete el.dataset.orbitveilOriginalVisibility;
   }
 
   function disableGuard() {

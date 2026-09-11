@@ -63,18 +63,24 @@ server for session/step orchestration, a hosted vision-language model for action
 
 ## 5. Feasibility and Viability
 
-- The full loop (capture → detect → redact → send → execute) is implemented and has run
-  end-to-end against a test form (`demo/demo-form.html`).
-- Redaction correctness was measured directly against a ground-truth fixture: 5/5 sensitive
-  fields correctly redacted, 2/2 control fields correctly left untouched (100% precision and
-  recall on this run) — see `eval/results.md`.
-- **Known constraint:** the current model provider's free tier can queue under load, adding
-  several seconds of latency per action in the worst case (see Latency in `eval/results.md`).
-  This doesn't affect correctness, only responsiveness, and is a swappable provider choice
-  rather than a structural limitation of the approach.
-- Spatial precision of redaction (pixel-level alignment) and client-side resource usage
-  (CPU/memory) are the two remaining measurements to complete before final numbers are locked —
-  both have defined, quick procedures in `eval/results.md` and don't require architecture changes.
+The full loop (capture → detect → redact → send → execute) is implemented and has run
+end-to-end against a ground-truth test form (`demo/demo-form.html`). All five official
+evaluation metrics have been measured directly, not estimated — full methodology and raw
+numbers in `eval/results.md`:
+
+| # | Metric | Weight | Result |
+|---|---|---|---|
+| 1 | Accuracy of visual context from screen | 25% | Face correctly located; all 8 interactive elements captured with zero misses in the DOM read; 6/6 agent actions targeted the correct element (0/5 sensitive fields ever touched) |
+| 2 | Recall/precision of PII detection | 20% | 5/5 sensitive fields detected (100% recall), 0/2 control fields wrongly flagged (100% precision) |
+| 3 | Precision of redaction | 20% | Face blur and PII black-boxes both visually confirmed tightly aligned to their regions, no edge leakage observed |
+| 4 | Client-side resource utilization | 20% | ~87MB peak memory (MediaPipe WASM + model loaded), <1.2% CPU during active detection |
+| 5 | End-to-end latency | 15% | ~535ms local processing (capture + detect + redact) per step; server round trip is the dominant cost (see known constraint below) |
+
+**Known constraint:** the current model provider's free tier can queue under load, adding
+several seconds — up to ~26s observed worst case — of latency per action (see Latency in
+`eval/results.md`). This doesn't affect correctness, only responsiveness, and is a swappable
+provider choice rather than a structural limitation of the approach — the redaction layer runs
+identically regardless of which downstream model is called.
 
 ## 6. Impact and Benefits
 

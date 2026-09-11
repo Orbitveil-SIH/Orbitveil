@@ -408,6 +408,12 @@ async function runAutomationLoop(taskDescription, onProgress = () => {}) {
   const { session_id } = await startSession(taskDescription);
   console.log("Session started:", session_id);
 
+  // Guards against burning the full MAX_STEPS budget on a confused run
+  // that keeps returning "wait" without ever progressing - fails fast
+  // instead of eating ~4s x 15 steps live during a demo.
+  let consecutiveWaits = 0;
+  const MAX_CONSECUTIVE_WAITS = 3;
+
   try {
     for (let step = 1; step <= MAX_STEPS; step++) {
       if (stopRequested) {
@@ -464,6 +470,16 @@ async function runAutomationLoop(taskDescription, onProgress = () => {}) {
       if (action.type === "done") {
         onProgress("Done!");
         return { status: "done", steps: step };
+      }
+
+      if (action.type === "wait") {
+        consecutiveWaits++;
+        if (consecutiveWaits >= MAX_CONSECUTIVE_WAITS) {
+          onProgress(`Stuck: ${consecutiveWaits} consecutive "wait" actions, stopping early.`);
+          return { status: "stuck_on_wait", steps: step };
+        }
+      } else {
+        consecutiveWaits = 0;
       }
 
       onProgress(`Step ${step}: performing ${action.type} on ${action.target || "page"}...`);

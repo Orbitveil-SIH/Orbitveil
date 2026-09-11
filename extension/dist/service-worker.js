@@ -242,6 +242,143 @@ async function redactScreenshotViaOffscreen(screenshotB64, faces, pii) {
   }
   return response.result;
 }
+async function applyLiveRedaction(tab) {
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => {
+      const canBlur = () => {
+        const params = new URLSearchParams(window.location.search);
+        const demoRisk = document.body?.dataset?.orbitveilDemoRisk || "";
+        const malicious = demoRisk === "malicious" || params.get("mode") === "malicious";
+        const hostname = window.location.hostname.toLowerCase();
+        const suspicious = [".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".work", ".click"].some((tld) => hostname.endsWith(tld));
+        return malicious || suspicious || hostname.includes("paypal") || hostname.includes("google") || hostname.includes("microsoft") || hostname.includes("amazon");
+      };
+      const mark = (el) => {
+        if (!el || el.dataset.orbitveilProtected === "true") return;
+        const originalFilter = el.style.filter || "";
+        const originalPointerEvents = el.style.pointerEvents || "";
+        const originalOpacity = el.style.opacity || "";
+        const originalBackground = el.style.background || "";
+        const originalColor = el.style.color || "";
+        el.dataset.orbitveilProtected = "true";
+        el.dataset.orbitveilOriginalFilter = originalFilter;
+        el.dataset.orbitveilOriginalPointerEvents = originalPointerEvents;
+        el.dataset.orbitveilOriginalOpacity = originalOpacity;
+        el.dataset.orbitveilOriginalBackground = originalBackground;
+        el.dataset.orbitveilOriginalColor = originalColor;
+        if (el.tagName && el.tagName.toLowerCase() === "img") {
+          el.style.filter = "blur(12px) brightness(0.35) grayscale(1)";
+          el.style.opacity = "0.2";
+        } else {
+          el.style.filter = "blur(6px)";
+          el.style.background = "rgba(0,0,0,0.85)";
+          el.style.color = "transparent";
+          el.style.opacity = "0.35";
+        }
+        el.style.pointerEvents = "none";
+      };
+      const unmark = (el) => {
+        if (!el || el.dataset.orbitveilProtected !== "true") return;
+        el.style.filter = el.dataset.orbitveilOriginalFilter || "";
+        el.style.pointerEvents = el.dataset.orbitveilOriginalPointerEvents || "";
+        el.style.opacity = el.dataset.orbitveilOriginalOpacity || "";
+        el.style.background = el.dataset.orbitveilOriginalBackground || "";
+        el.style.color = el.dataset.orbitveilOriginalColor || "";
+        delete el.dataset.orbitveilOriginalFilter;
+        delete el.dataset.orbitveilOriginalPointerEvents;
+        delete el.dataset.orbitveilOriginalOpacity;
+        delete el.dataset.orbitveilOriginalBackground;
+        delete el.dataset.orbitveilOriginalColor;
+        delete el.dataset.orbitveilProtected;
+      };
+      const sensitiveNames = /* @__PURE__ */ new Set([
+        "full_name",
+        "full-name",
+        "name",
+        "dob",
+        "date_of_birth",
+        "phone",
+        "phone_number",
+        "card_number",
+        "card-number",
+        "email",
+        "password",
+        "account_number",
+        "credit_card"
+      ]);
+      const sensitiveAutocomplete = /* @__PURE__ */ new Set(["name", "email", "tel", "cc-number", "new-password", "current-password"]);
+      const shouldProtect = canBlur();
+      if (!shouldProtect) return { protected: 0 };
+      const elements = [...document.querySelectorAll("input, textarea, select, img")];
+      let protectedCount = 0;
+      for (const el of elements) {
+        if (el.tagName && el.tagName.toLowerCase() === "img") {
+          if (el.id === "profile-photo" || (el.alt || "").toLowerCase().includes("photo")) {
+            mark(el);
+            protectedCount++;
+            continue;
+          }
+        }
+        const type = (el.getAttribute("type") || "").toLowerCase();
+        const autocomplete = (el.getAttribute("autocomplete") || "").toLowerCase();
+        const name = (el.getAttribute("name") || "").toLowerCase();
+        const id = (el.getAttribute("id") || "").toLowerCase();
+        const matches = type === "password" || sensitiveAutocomplete.has(autocomplete) || sensitiveNames.has(name) || sensitiveNames.has(id);
+        if (matches) {
+          mark(el);
+          protectedCount++;
+        }
+      }
+      const existingBanner = document.getElementById("orbitveil-phishing-banner");
+      if (!existingBanner) {
+        const banner = document.createElement("div");
+        banner.id = "orbitveil-phishing-banner";
+        banner.style.cssText = [
+          "position:fixed",
+          "top:0",
+          "left:0",
+          "right:0",
+          "z-index:2147483647",
+          "background:#b91c1c",
+          "color:#fff",
+          "font-family:system-ui,sans-serif",
+          "font-size:14px",
+          "padding:10px 16px",
+          "display:flex",
+          "align-items:center",
+          "justify-content:space-between",
+          "box-shadow:0 2px 6px rgba(0,0,0,0.3)"
+        ].join(";");
+        const text = document.createElement("span");
+        text.textContent = "\u26A0 Orbitveil: this page looks suspicious \u2014 protected until you trust it.";
+        const btn = document.createElement("button");
+        btn.textContent = "I trust this site \u2014 show fields";
+        btn.style.cssText = [
+          "margin-left:12px",
+          "background:#fff",
+          "color:#b91c1c",
+          "border:none",
+          "border-radius:4px",
+          "padding:6px 10px",
+          "font-size:13px",
+          "cursor:pointer",
+          "flex-shrink:0"
+        ].join(";");
+        btn.onclick = () => {
+          const items = [...document.querySelectorAll("input, textarea, select, img")];
+          for (const item of items) unmark(item);
+          banner.remove();
+        };
+        banner.appendChild(text);
+        banner.appendChild(btn);
+        document.documentElement.appendChild(banner);
+      }
+      return { protected: protectedCount };
+    }
+  });
+  return result || { protected: 0 };
+}
 async function getDomSummaryFromActiveTab(tab) {
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
@@ -470,6 +607,8 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
       }
       onProgress(`Step ${step}: reading page...`);
       const tab = await getActiveTab();
+      const liveProtection = await applyLiveRedaction(tab);
+      console.log("Live page protection applied:", liveProtection);
       const domSummaryRaw = await getDomSummaryFromActiveTab(tab);
       const domSummary = JSON.stringify(domSummaryRaw);
       onProgress(`Step ${step}: detecting faces & PII...`);

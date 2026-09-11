@@ -363,6 +363,8 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
 }
 var DEBUG_OPEN_RAW_CAPTURE = false;
 var debugCaptureShown = false;
+var DEBUG_OPEN_REDACTED_CAPTURE = true;
+var debugRedactedCaptureShown = false;
 async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
   if (DEBUG_OPEN_RAW_CAPTURE && !debugCaptureShown) {
@@ -375,6 +377,10 @@ async function getRedactedImageAndDetections(tab) {
   const pii = await getPiiDetectionsFromActiveTab(tab, dims.width, dims.height);
   const { redactedScreenshot, redactions } = await redactScreenshotViaOffscreen(screenshotB64, faces, pii);
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);
+  if (DEBUG_OPEN_REDACTED_CAPTURE && !debugRedactedCaptureShown) {
+    debugRedactedCaptureShown = true;
+    chrome.tabs.create({ url: redactedScreenshot });
+  }
   const base64Prefix = "base64,";
   const idx = redactedScreenshot.indexOf(base64Prefix);
   return { imageB64: redactedScreenshot.slice(idx + base64Prefix.length), redactions };

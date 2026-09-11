@@ -289,6 +289,13 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
 const DEBUG_OPEN_RAW_CAPTURE = false;
 let debugCaptureShown = false;
 
+// Same one-time-per-session pattern as above, but for the REDACTED
+// screenshot - flip this to true to visually confirm blurring/blackout
+// is actually happening before it is sent to the server. Flip back to
+// false before the live demo.
+const DEBUG_OPEN_REDACTED_CAPTURE = true;
+let debugRedactedCaptureShown = false;
+
 async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
 
@@ -305,6 +312,11 @@ async function getRedactedImageAndDetections(tab) {
 
   const { redactedScreenshot, redactions } = await redactScreenshotViaOffscreen(screenshotB64, faces, pii);
   console.log(`Redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s)`);
+
+  if (DEBUG_OPEN_REDACTED_CAPTURE && !debugRedactedCaptureShown) {
+    debugRedactedCaptureShown = true;
+    chrome.tabs.create({ url: redactedScreenshot });
+  }
 
   const base64Prefix = "base64,";
   const idx = redactedScreenshot.indexOf(base64Prefix);

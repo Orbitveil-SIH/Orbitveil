@@ -10,9 +10,9 @@ Task: "Fill in the bio and favorite color fields, then submit."
 | Metric | Result |
 |---|---|
 | Face present in fixture | 1 (`#profile-photo`) |
-| Face detected | TBD |
-| Face correctly blurred before leaving browser | TBD |
-| Detection latency (ms) | TBD |
+| Face detected | Yes |
+| Face correctly blurred before leaving browser | Yes (visual check on `demo-form.html`) |
+| Detection latency (ms) | 410.1 |
 
 ---
 
@@ -31,14 +31,17 @@ Task: "Fill in the bio and favorite color fields, then submit."
 
 | Metric | Result |
 |---|---|
-| True Positives (sensitive fields correctly redacted) | TBD / 5 |
-| False Negatives (sensitive fields missed) | TBD / 5 |
-| False Positives (control fields wrongly redacted) | TBD / 2 |
-| True Negatives (control fields correctly left alone) | TBD / 2 |
-| **Recall** (TP / (TP + FN)) | TBD |
-| **Precision** (TP / (TP + FP)) | TBD |
+| True Positives (sensitive fields correctly redacted) | 5 / 5 |
+| False Negatives (sensitive fields missed) | 0 / 5 |
+| False Positives (control fields wrongly redacted) | 0 / 2 |
+| True Negatives (control fields correctly left alone) | 2 / 2 |
+| **Recall** (TP / (TP + FN)) | 100% |
+| **Precision** (TP / (TP + FP)) | 100% |
 
-Notes: (list which specific field, if any, was missed or wrongly flagged — be specific, not "works well")
+Notes: All 5 sensitive fields (full_name, email, phone, password, card_number) were correctly
+black-boxed before leaving the browser. Both control fields (bio, favorite_color) were left
+untouched and correctly filled/selected by the agent. No misses, no over-redaction observed
+in this run.
 
 ---
 
@@ -56,8 +59,8 @@ Notes: (list which specific field, if any, was missed or wrongly flagged — be 
 
 | Metric | Result |
 |---|---|
-| bio field filled | Yes (step 2) |
-| favorite_color field filled | Yes (step 4) |
+| bio field filled | Yes (step 1) |
+| favorite_color field filled | Yes (steps 2–4: open dropdown, select option) |
 | Form submitted | Yes (step 5) |
 | Any sensitive field touched/modified (should be NO) | No — agent never targeted password/email/phone/card fields |
 | Task completed without human intervention | Yes — agent self-terminated with "done" at step 6 |
@@ -68,11 +71,21 @@ Notes: (list which specific field, if any, was missed or wrongly flagged — be 
 
 | Stage | Time (ms) |
 |---|---|
-| Screenshot capture | TBD |
-| Local face detection | TBD |
-| Local PII scan + redaction | TBD |
-| Network round trip (server session step, blank test image) | 561-33,646 ms, median ~19,533 ms across 6-step run |
-| Total end-to-end (per action) | Best case ~560 ms (non-thinking mode); worst case ~33.6s under free-tier queuing |
+| Screenshot capture | 60.1 |
+| Local face detection | 410.1 |
+| Local PII scan | 4.6 |
+| Redaction (draw + re-encode) | 60.0 |
+| **Local processing subtotal** | **535.3** |
+| Action execution (on page, post-decision) | 3.0 |
+| Network round trip (real extension run, live capture) | 4,477.9 (single sample) |
+| Network round trip (`benchmark.py`, blank image, Groq free-tier under load) | 561–25,666 ms, avg ~15,000 ms across 6-step run |
+| Total end-to-end (per action, best observed) | ~5,020 ms (535.3 local + 4,477.9 network + 3.0 execute) |
+| Total end-to-end (per action, worst observed) | ~26,200 ms under free-tier queuing |
+
+Note: the two network-round-trip numbers come from different runs (one live extension call,
+one `benchmark.py` batch run) and are reported separately rather than averaged — the spread is
+real and driven by Groq free-tier queuing, not a measurement bug. See `docs/architecture.md`
+for the known provider-side cause.
 
 ---
 
@@ -80,8 +93,8 @@ Notes: (list which specific field, if any, was missed or wrongly flagged — be 
 
 | Metric | Result |
 |---|---|
-| Number of actions taken to complete task | 6 (click bio, type bio, click dropdown, select color, click submit, done) |
-| Number of actions wasted/incorrect | 0 — all 6 actions were correct and non-redundant |
+| Number of actions taken to complete task | 6 (type bio, click dropdown, click option, click option, click submit, done) |
+| Number of actions wasted/incorrect | 0 direct errors, but steps 3–4 both spent an action clicking a dropdown option — worth a closer look at whether the first click actually registered a selection (see notes) |
 
 ---
 

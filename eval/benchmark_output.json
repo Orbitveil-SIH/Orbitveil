@@ -1,29 +1,41 @@
 {
-  "session_id": "af45f3deaa004b38828a477ac713dc2e",
+  "session_id": "32dbe5ad39e340159859d6820f931a67",
   "steps": [
     {
       "step": 1,
-      "elapsed_ms": 735.9,
+      "elapsed_ms": 606.3,
       "action_type": "type",
-      "target": "textarea[name='bio']"
+      "target": "textarea[name=\"bio\"]"
     },
     {
       "step": 2,
-      "elapsed_ms": 485.5,
+      "elapsed_ms": 748.2,
       "action_type": "click",
-      "target": "select[name='favorite_color']"
+      "target": "select[name=\"favorite_color\"]"
     },
     {
       "step": 3,
-      "elapsed_ms": 22543.6,
+      "elapsed_ms": 20576.8,
       "action_type": "click",
-      "target": "select[name='favorite_color'] option[value='blue']"
+      "target": "select[name=\"favorite_color\"] option"
     },
     {
       "step": 4,
-      "elapsed_ms": 20843.1,
+      "elapsed_ms": 25665.8,
       "action_type": "click",
-      "target": "button[type='submit']"
+      "target": "select[name=\"favorite_color\"] option"
+    },
+    {
+      "step": 5,
+      "elapsed_ms": 20657.5,
+      "action_type": "click",
+      "target": "button[type=\"submit\"]"
+    },
+    {
+      "step": 6,
+      "elapsed_ms": 21544.8,
+      "action_type": "done",
+      "target": null
     }
   ]
 }

@@ -7,6 +7,12 @@
   body { font-family: Arial, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 20px; }
   h1 { font-size: 20px; }
   .task-banner { background: #eef; border: 1px solid #99c; padding: 10px; margin-bottom: 20px; font-weight: bold; }
+  .mode-toggle { display: flex; gap: 8px; margin: 12px 0 20px; }
+  .mode-toggle a { text-decoration: none; padding: 8px 12px; border: 1px solid #999; border-radius: 999px; color: #222; background: #fff; }
+  .mode-toggle a.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+  .site-status { padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
+  .site-status.safe { background: #eafaf1; color: #166534; }
+  .site-status.malicious { background: #fee2e2; color: #991b1b; }
   label { display: block; margin-top: 14px; font-size: 14px; }
   input, textarea, select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
   #profile-photo { width: 120px; height: 120px; border-radius: 50%; display: block; margin: 10px 0; object-fit: cover; }
@@ -14,7 +20,7 @@
   .note { font-size: 12px; color: #666; margin-top: 24px; }
 </style>
 </head>
-<body>
+<body data-orbitveil-demo-risk="safe">
 
 <h1>Create Your Account</h1>
 
@@ -33,19 +39,23 @@
   <label for="full-name">Full Name</label>
   <input type="text" id="full-name" name="full_name" autocomplete="name" value="Rohan Mehta">
 
-  <!-- PII field 2: email -->
+  <!-- PII field 2: DOB -->
+  <label for="dob">Date of Birth</label>
+  <input type="date" id="dob" name="dob" value="1997-08-14">
+
+  <!-- PII field 3: email -->
   <label for="email">Email Address</label>
   <input type="email" id="email" name="email" autocomplete="email" value="rohan.mehta@example.com">
 
-  <!-- PII field 3: phone -->
+  <!-- PII field 4: phone -->
   <label for="phone">Phone Number</label>
   <input type="tel" id="phone" name="phone" autocomplete="tel" value="+91 98765 43210">
 
-  <!-- PII field 4: password -->
+  <!-- PII field 5: password -->
   <label for="password">Password</label>
   <input type="password" id="password" name="password" autocomplete="new-password" value="Sup3rSecret!23">
 
-  <!-- PII field 5: card number -->
+  <!-- PII field 6: card number -->
   <label for="card-number">Card Number</label>
   <input type="text" id="card-number" name="card_number" autocomplete="cc-number" value="4111 1111 1111 1111">
 
@@ -76,10 +86,15 @@
 </p>
 
 <script>
+  // Default demo is the real-page protection flow: blur sensitive fields on the
+  // live page, and keep the form usable for evaluation / smoke testing.
+  document.body.dataset.orbitveilDemoRisk = 'safe';
+
   // Prevent actual navigation during testing; log submission for eval harness
   document.getElementById('signup-form').addEventListener('submit', function(e) {
     e.preventDefault();
     console.log('[DEMO FORM] Submitted:', {
+      mode: 'safe',
       bio: document.getElementById('bio').value,
       favorite_color: document.getElementById('favorite-color').value
     });

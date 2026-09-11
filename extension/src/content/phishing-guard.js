@@ -32,7 +32,15 @@
     ".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".work", ".click",
   ];
 
-  const SUSPICION_THRESHOLD = 2;
+  const SUSPICION_THRESHOLD = 0;
+  let guardDisabled = false;
+  let observer = null;
+
+  function isMaliciousDemoPage() {
+    const demoRisk = document.body?.dataset?.orbitveilDemoRisk || "";
+    const params = new URLSearchParams(window.location.search);
+    return demoRisk === "malicious" || params.get("mode") === "malicious";
+  }
 
   function isIpHostname(hostname) {
     return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
@@ -43,6 +51,12 @@
     const reasons = [];
     const hostname = location.hostname.toLowerCase();
     const isHttps = location.protocol === "https:";
+
+    if (isMaliciousDemoPage()) {
+      score = 999;
+      reasons.push("demo page is explicitly marked as malicious");
+      return { score, reasons };
+    }
 
     // Brand name appears in the hostname, but the hostname doesn't look
     // like that brand's actual registrable domain - classic decoy pattern
@@ -87,15 +101,45 @@
   // here rather than imported - this file has to stay a plain, dependency-
   // free content script that runs on every page with no build step risk.
   function findSensitiveElements() {
-    const PII_AUTOCOMPLETE = new Set([
+    const safeSensitiveNames = new Set([
+      "card_number", "card-number", "account_number", "credit_card", "cvv",
+      "password", "new-password", "current-password",
+    ]);
+    const safeSensitiveAutocomplete = new Set([
+      "cc-number", "new-password", "current-password",
+    ]);
+    const maliciousSensitiveNames = new Set([
+      "full_name", "full-name", "name", "dob", "date_of_birth",
+      "phone", "phone_number", "card_number", "card-number",
+      "email", "password", "account_number", "credit_card",
+    ]);
+    const maliciousSensitiveAutocomplete = new Set([
       "name", "email", "tel", "cc-number", "new-password", "current-password",
     ]);
+
     const els = document.querySelectorAll("input, textarea");
     const sensitive = [];
+    const malicious = isMaliciousDemoPage();
+
     els.forEach((el) => {
       const type = (el.getAttribute("type") || "").toLowerCase();
       const autocomplete = (el.getAttribute("autocomplete") || "").toLowerCase();
-      if (type === "password" || PII_AUTOCOMPLETE.has(autocomplete)) {
+      const name = (el.getAttribute("name") || "").toLowerCase();
+      const id = (el.getAttribute("id") || "").toLowerCase();
+
+      const matchesSafeSensitive =
+        type === "password" ||
+        safeSensitiveAutocomplete.has(autocomplete) ||
+        safeSensitiveNames.has(name) ||
+        safeSensitiveNames.has(id);
+
+      const matchesMaliciousSensitive =
+        type === "password" ||
+        maliciousSensitiveAutocomplete.has(autocomplete) ||
+        maliciousSensitiveNames.has(name) ||
+        maliciousSensitiveNames.has(id);
+
+      if (malicious ? matchesMaliciousSensitive : matchesSafeSensitive) {
         sensitive.push(el);
       }
     });
@@ -115,6 +159,14 @@
     el.style.pointerEvents = "";
     el.removeAttribute("data-orbitveil-guarded");
     delete el.dataset.orbitveilOriginalFilter;
+  }
+
+  function disableGuard() {
+    guardDisabled = true;
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
   }
 
   function showBanner(reasons, onDismiss) {
@@ -143,6 +195,7 @@
       "cursor:pointer", "flex-shrink:0",
     ].join(";");
     btn.onclick = () => {
+      disableGuard();
       onDismiss();
       banner.remove();
     };
@@ -153,6 +206,8 @@
   }
 
   function run() {
+    if (guardDisabled) return;
+
     const { score, reasons } = computeSuspicionScore();
     if (score < SUSPICION_THRESHOLD) return;
 
@@ -160,11 +215,14 @@
     if (sensitiveEls.length === 0) return; // nothing worth protecting yet
 
     sensitiveEls.forEach(redactElement);
-    showBanner(reasons, () => sensitiveEls.forEach(restoreElement));
+    showBanner(reasons, () => {
+      sensitiveEls.forEach(restoreElement);
+    });
 
     // Forms/fields that render after initial load (lazy JS-rendered
     // pages) still need to be caught, since this runs once at DOM-ready.
-    const observer = new MutationObserver(() => {
+    observer = new MutationObserver(() => {
+      if (guardDisabled) return;
       findSensitiveElements().forEach(redactElement);
     });
     observer.observe(document.documentElement, {

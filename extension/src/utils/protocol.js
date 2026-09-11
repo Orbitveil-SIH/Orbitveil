@@ -1,4 +1,4 @@
-const SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
+const SERVER_BASE_URL = "http://localhost:8000";
 export async function analyze(taskDescription, domSummary, redactedImageB64) {
   const response = await fetch(`${SERVER_BASE_URL}/analyze`, {
     method: "POST",

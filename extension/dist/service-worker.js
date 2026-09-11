@@ -361,7 +361,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
   });
   return result;
 }
-var DEBUG_OPEN_RAW_CAPTURE = true;
+var DEBUG_OPEN_RAW_CAPTURE = false;
 var debugCaptureShown = false;
 async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();

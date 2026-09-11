@@ -286,7 +286,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
 // what's on-screen, not the full scrollable page. Flip back to false
 // once face detection is confirmed working (leaving it on will open a
 // new tab on every single step of every run).
-const DEBUG_OPEN_RAW_CAPTURE = true;
+const DEBUG_OPEN_RAW_CAPTURE = false;
 let debugCaptureShown = false;
 
 async function getRedactedImageAndDetections(tab) {

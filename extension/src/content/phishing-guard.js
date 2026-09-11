@@ -1,5 +1,6 @@
 
 (function () {
+  console.log('[phishing-guard] LOADED. hostname=', location.hostname, 'protocol=', location.protocol);
   const KNOWN_BRANDS = [
     "paypal", "google", "microsoft", "apple", "amazon", "facebook",
     "instagram", "whatsapp", "netflix", "bankofamerica", "chase",

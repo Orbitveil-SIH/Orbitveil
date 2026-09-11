@@ -1,6 +1,7 @@
 import { analyze } from "../utils/protocol.js";
 import { captureScreenshot } from "../content/capture.js";
 import { getDomSummary } from "../utils/dom-summary.js";
+import { executeActionInPage } from "../content/executor.js";
 
 // NOTE: detectFaces and redactScreenshot are intentionally NOT imported
 // here. MediaPipe's internal WASM loading uses dynamic import(), which
@@ -258,7 +259,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
 // what's on-screen, not the full scrollable page. Flip back to false
 // once face detection is confirmed working (leaving it on will open a
 // new tab on every single step of every run).
-const DEBUG_OPEN_RAW_CAPTURE = true;
+const DEBUG_OPEN_RAW_CAPTURE = false;
 let debugCaptureShown = false;
 
 async function getRedactedImageAndDetections(tab) {
@@ -283,13 +284,21 @@ async function getRedactedImageAndDetections(tab) {
   return { imageB64: redactedScreenshot.slice(idx + base64Prefix.length), redactions };
 }
 
-// TODO(Aparna): executor.js is currently empty. Once it exists, replace
-// this stub with: import { executeAction } from "../content/executor.js"
-// and inject it via chrome.scripting.executeScript against the active tab.
-
 async function executeAction(tab, action) {
-  console.log("Would execute action on tab", tab.id, ":", action);
-  return { success: true };
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: executeActionInPage,
+      args: [action],
+    });
+    if (!result || !result.success) {
+      console.warn("Action execution reported failure:", result?.error);
+    }
+    return result || { success: false, error: "No result returned from executeScript." };
+  } catch (err) {
+    console.error("executeAction threw:", err);
+    return { success: false, error: err.message };
+  }
 }
 
 const MAX_STEPS = 15;

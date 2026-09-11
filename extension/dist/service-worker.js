@@ -15,6 +15,124 @@ async function captureScreenshot() {
   return base64Image;
 }
 
+// src/content/executor.js
+function executeActionInPage(action) {
+  try {
+    let resolveTarget = function(target2) {
+      if (!target2) return null;
+      try {
+        const el = document.querySelector(target2);
+        if (el) return el;
+      } catch (e) {
+      }
+      const candidates = document.querySelectorAll(
+        "input, textarea, select, button, a, [role='button']"
+      );
+      const needle = String(target2).toLowerCase().trim();
+      if (!needle) return null;
+      function isVisible(el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return false;
+        const style = window.getComputedStyle(el);
+        return style.display !== "none" && style.visibility !== "hidden";
+      }
+      function getLabelText(el) {
+        if (el.id) {
+          const label = document.querySelector(`label[for="${el.id}"]`);
+          if (label) return label.textContent || "";
+        }
+        const parentLabel = el.closest("label");
+        if (parentLabel) return parentLabel.textContent || "";
+        return "";
+      }
+      function fieldsOf(el) {
+        return [
+          getLabelText(el),
+          el.getAttribute("placeholder") || "",
+          el.getAttribute("name") || "",
+          el.getAttribute("id") || "",
+          el.getAttribute("aria-label") || "",
+          el.textContent || "",
+          el.value || ""
+        ].join(" ").toLowerCase();
+      }
+      let bestMatch = null;
+      let bestScore = 0;
+      for (const el of candidates) {
+        if (!isVisible(el)) continue;
+        const haystack = fieldsOf(el);
+        if (!haystack.trim()) continue;
+        let score = 0;
+        if (haystack.includes(needle)) {
+          score = needle.length;
+        } else {
+          const needleWords = needle.split(/\s+/).filter(Boolean);
+          const matchedWords = needleWords.filter((w) => haystack.includes(w));
+          score = matchedWords.length / Math.max(needleWords.length, 1);
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = el;
+        }
+      }
+      return bestMatch;
+    }, doClick = function(el) {
+      if (!el) return { success: false, error: "No matching element found for click." };
+      el.scrollIntoView({ block: "center", behavior: "instant" });
+      if (typeof el.focus === "function") el.focus();
+      el.click();
+      return { success: true };
+    }, doType = function(el, text) {
+      if (!el) return { success: false, error: "No matching element found for type." };
+      el.scrollIntoView({ block: "center", behavior: "instant" });
+      if (typeof el.focus === "function") el.focus();
+      const tag = el.tagName.toLowerCase();
+      if (tag === "select") {
+        el.value = text;
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        return { success: true };
+      }
+      const proto = tag === "textarea" ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+      const nativeSetter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+      if (nativeSetter) {
+        nativeSetter.call(el, text);
+      } else {
+        el.value = text;
+      }
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      return { success: true };
+    }, doScroll = function(directionValue) {
+      const amount = Math.round(window.innerHeight * 0.8);
+      const dir = (directionValue || "down").toLowerCase();
+      const delta = dir === "up" ? -amount : amount;
+      window.scrollBy({ top: delta, behavior: "instant" });
+      return { success: true };
+    };
+    const { type, target, value } = action || {};
+    switch (type) {
+      case "click": {
+        const el = resolveTarget(target);
+        return doClick(el);
+      }
+      case "type": {
+        const el = resolveTarget(target);
+        return doType(el, value ?? "");
+      }
+      case "scroll": {
+        return doScroll(value);
+      }
+      case "wait":
+      case "done":
+        return { success: true };
+      default:
+        return { success: false, error: `Unknown action type: ${type}` };
+    }
+  } catch (err) {
+    return { success: false, error: err.message || String(err) };
+  }
+}
+
 // src/background/service-worker.js
 var SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
 async function startSession(taskDescription) {
@@ -223,7 +341,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
   });
   return result;
 }
-var DEBUG_OPEN_RAW_CAPTURE = true;
+var DEBUG_OPEN_RAW_CAPTURE = false;
 var debugCaptureShown = false;
 async function getRedactedImageAndDetections(tab) {
   const screenshotB64 = await captureScreenshot();
@@ -242,8 +360,20 @@ async function getRedactedImageAndDetections(tab) {
   return { imageB64: redactedScreenshot.slice(idx + base64Prefix.length), redactions };
 }
 async function executeAction(tab, action) {
-  console.log("Would execute action on tab", tab.id, ":", action);
-  return { success: true };
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: executeActionInPage,
+      args: [action]
+    });
+    if (!result || !result.success) {
+      console.warn("Action execution reported failure:", result?.error);
+    }
+    return result || { success: false, error: "No result returned from executeScript." };
+  } catch (err) {
+    console.error("executeAction threw:", err);
+    return { success: false, error: err.message };
+  }
 }
 var MAX_STEPS = 15;
 var stopRequested = false;

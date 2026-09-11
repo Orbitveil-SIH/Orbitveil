@@ -4917,6 +4917,10 @@ function getImageDimensions(dataUrl) {
   });
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "OFFSCREEN_PING") {
+    sendResponse({ ok: true });
+    return false;
+  }
   if (message.type === "OFFSCREEN_DETECT_FACES") {
     (async () => {
       try {

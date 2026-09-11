@@ -77,13 +77,40 @@ const OFFSCREEN_URL = "offscreen.html";
 
 async function ensureOffscreenDocument() {
   const existing = await chrome.offscreen.hasDocument?.();
-  if (existing) return;
 
-  await chrome.offscreen.createDocument({
-    url: OFFSCREEN_URL,
-    reasons: ["BLOBS"],
-    justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker.",
-  });
+  if (existing) {
+    // hasDocument() can report true even for a stale/zombie document that
+    // no longer responds (e.g. after a crash or extension reload). Verify
+    // it's actually alive with a lightweight ping before trusting it.
+    try {
+      await chrome.runtime.sendMessage({ type: "OFFSCREEN_PING" });
+      return; // alive, nothing to do
+    } catch (e) {
+      console.warn("Offscreen document exists but is unresponsive, recreating:", e);
+      try {
+        await chrome.offscreen.closeDocument();
+      } catch (closeErr) {
+        console.warn("closeDocument() failed (non-fatal):", closeErr);
+      }
+    }
+  }
+
+  try {
+    await chrome.offscreen.createDocument({
+      url: OFFSCREEN_URL,
+      reasons: ["BLOBS"],
+      justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker.",
+    });
+  } catch (err) {
+    // Race condition: another createDocument call may have already
+    // succeeded between our check and this call. If Chrome says one
+    // already exists, treat that as success rather than failing.
+    if (String(err).includes("single offscreen document")) {
+      console.warn("Offscreen document already exists (race), continuing.");
+      return;
+    }
+    throw err;
+  }
 }
 
 async function detectFacesViaOffscreen(dataUrl) {

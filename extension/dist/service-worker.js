@@ -176,12 +176,32 @@ async function getActiveTab() {
 var OFFSCREEN_URL = "offscreen.html";
 async function ensureOffscreenDocument() {
   const existing = await chrome.offscreen.hasDocument?.();
-  if (existing) return;
-  await chrome.offscreen.createDocument({
-    url: OFFSCREEN_URL,
-    reasons: ["BLOBS"],
-    justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker."
-  });
+  if (existing) {
+    try {
+      await chrome.runtime.sendMessage({ type: "OFFSCREEN_PING" });
+      return;
+    } catch (e) {
+      console.warn("Offscreen document exists but is unresponsive, recreating:", e);
+      try {
+        await chrome.offscreen.closeDocument();
+      } catch (closeErr) {
+        console.warn("closeDocument() failed (non-fatal):", closeErr);
+      }
+    }
+  }
+  try {
+    await chrome.offscreen.createDocument({
+      url: OFFSCREEN_URL,
+      reasons: ["BLOBS"],
+      justification: "Run on-device face detection (MediaPipe) which requires dynamic import() and canvas APIs unavailable in the service worker."
+    });
+  } catch (err) {
+    if (String(err).includes("single offscreen document")) {
+      console.warn("Offscreen document already exists (race), continuing.");
+      return;
+    }
+    throw err;
+  }
 }
 async function detectFacesViaOffscreen(dataUrl) {
   await ensureOffscreenDocument();

@@ -422,10 +422,28 @@ async function runAutomationLoop(taskDescription, onProgress = () => {}) {
 
       onProgress(`Step ${step}: redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s). Analyzing...`);
 
+      //let result;
+      /*try {
+        result = await stepSession(session_id, domSummary, redactedImageB64);
+      } catch (err) {*/
       let result;
       try {
-        result = await stepSession(session_id, domSummary, redactedImageB64);
-      } catch (err) {
+        const serverStart = performance.now();
+
+        result = await stepSession(
+          session_id,
+          domSummary,
+          redactedImageB64
+  );
+
+  const serverEnd = performance.now();
+
+  const serverRoundTripMs = serverEnd - serverStart;
+
+  console.log(
+    `[Benchmark] Server round trip: ${serverRoundTripMs.toFixed(2)} ms`
+  );
+} catch (err) {
         console.error("Loop stopped on error:", err);
         onProgress(`Error: ${err.message}`);
         return { status: "error", error: err.message };
@@ -444,7 +462,18 @@ async function runAutomationLoop(taskDescription, onProgress = () => {}) {
       }
 
       onProgress(`Step ${step}: performing ${action.type} on ${action.target || "page"}...`);
+      //await executeAction(tab, action);
+      const actionStart = performance.now();
+
       await executeAction(tab, action);
+
+      const actionEnd = performance.now();
+
+      const actionExecutionMs = actionEnd - actionStart;
+
+      console.log(
+          `[Benchmark] Action execution: ${actionExecutionMs.toFixed(2)} ms`
+);
       await new Promise((r) => setTimeout(r, 800));
     }
 

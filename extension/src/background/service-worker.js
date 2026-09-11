@@ -309,21 +309,14 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
   return result;
 }
 
-// DEBUG: set to true to visually inspect exactly what captureScreenshot()
-// actually captured, by opening it in a new tab as a data URL. This is
-// the ONLY way to confirm whether a face photo was in the visible
-// viewport at capture time - chrome.tabs.captureVisibleTab only grabs
-// what's on-screen, not the full scrollable page. Flip back to false
-// once face detection is confirmed working (leaving it on will open a
-// new tab on every single step of every run).
+// Debug tab openings are intentionally disabled for the real product flow.
+// The legitimate behavior is to redact the live page in-place; opening a
+// screenshot in a new PNG tab is only a developer aid and must not remain on
+// during smoke tests or demos.
 const DEBUG_OPEN_RAW_CAPTURE = false;
 let debugCaptureShown = false;
 
-// Same one-time-per-session pattern as above, but for the REDACTED
-// screenshot - flip this to true to visually confirm blurring/blackout
-// is actually happening before it is sent to the server. Flip back to
-// false before the live demo.
-const DEBUG_OPEN_REDACTED_CAPTURE = true;
+const DEBUG_OPEN_REDACTED_CAPTURE = false;
 let debugRedactedCaptureShown = false;
 
 //async function getRedactedImageAndDetections(tab) {

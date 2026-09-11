@@ -134,7 +134,7 @@ function executeActionInPage(action) {
 }
 
 // src/background/service-worker.js
-var SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
+var SERVER_BASE_URL = "http://localhost:8000";
 async function startSession(taskDescription) {
   const res = await fetch(`${SERVER_BASE_URL}/session/start`, {
     method: "POST",
@@ -378,7 +378,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
 }
 var DEBUG_OPEN_RAW_CAPTURE = false;
 var debugCaptureShown = false;
-var DEBUG_OPEN_REDACTED_CAPTURE = true;
+var DEBUG_OPEN_REDACTED_CAPTURE = false;
 var debugRedactedCaptureShown = false;
 async function getRedactedImageAndDetections(tab) {
   const localStart = performance.now();

@@ -8,7 +8,7 @@ tell the user to fill it locally.
 
 Given the task description, decide the SINGLE next best action.
 
-Respond with ONLY valid JSON, no markdown fences, no preamble.
+Respond with ONLY a valid JSON object, no markdown fences, no preamble.
 You MUST use exactly these field names — do not rename, abbreviate, or substitute them:
 
 {
@@ -18,10 +18,11 @@ You MUST use exactly these field names — do not rename, abbreviate, or substit
   "reasoning": "<one sentence on why>"
 }
 
-The field name is "type" (not "action" or "action_type").
+The field name is "type" (not "action" or "action_type" or "som").
 The field name is "target" (not "selector" or "element").
 The field name is "value" (not "text" or "input").
 Do not add extra fields. Do not omit any of the four fields above.
+Use "done" once the task has been fully completed.
 """
 
 def build_prompt(task_description: str, dom_summary: str, history_text: str = None) -> str:

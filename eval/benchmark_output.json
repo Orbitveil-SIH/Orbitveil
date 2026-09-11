@@ -1,62 +1,29 @@
-[
-  {
-    "step": 1,
-    "elapsed_ms": 3987.1,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 2,
-    "elapsed_ms": 4944.5,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 3,
-    "elapsed_ms": 4021.0,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 4,
-    "elapsed_ms": 3434.4,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 5,
-    "elapsed_ms": 4303.5,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 6,
-    "elapsed_ms": 3938.4,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 7,
-    "elapsed_ms": 6342.7,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 8,
-    "elapsed_ms": 4868.1,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 9,
-    "elapsed_ms": 4696.9,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  },
-  {
-    "step": 10,
-    "elapsed_ms": 4902.4,
-    "action_type": "type",
-    "target": "textarea[name=\"bio\"]"
-  }
-]
+{
+  "session_id": "af45f3deaa004b38828a477ac713dc2e",
+  "steps": [
+    {
+      "step": 1,
+      "elapsed_ms": 735.9,
+      "action_type": "type",
+      "target": "textarea[name='bio']"
+    },
+    {
+      "step": 2,
+      "elapsed_ms": 485.5,
+      "action_type": "click",
+      "target": "select[name='favorite_color']"
+    },
+    {
+      "step": 3,
+      "elapsed_ms": 22543.6,
+      "action_type": "click",
+      "target": "select[name='favorite_color'] option[value='blue']"
+    },
+    {
+      "step": 4,
+      "elapsed_ms": 20843.1,
+      "action_type": "click",
+      "target": "button[type='submit']"
+    }
+  ]
+}

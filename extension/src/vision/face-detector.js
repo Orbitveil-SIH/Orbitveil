@@ -21,7 +21,7 @@
 import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
 
 const WASM_BASE_URL = chrome.runtime.getURL("wasm");
-const MODEL_URL = chrome.runtime.getURL("models/blaze_face_short_range.tflite");
+const MODEL_URL = chrome.runtime.getURL("models/blaze_face_full_range.tflite");
 
 let detectorInstance = null;
 let detectorLoadingPromise = null;
@@ -45,7 +45,7 @@ async function getDetector() {
         delegate: "GPU",
       },
       runningMode: "IMAGE",
-      minDetectionConfidence: 0.5,
+      minDetectionConfidence: 0.3,
     });
     // DEBUG: confirms the model actually finished loading. If this never
     // logs, getDetector() is hanging or throwing before this point.

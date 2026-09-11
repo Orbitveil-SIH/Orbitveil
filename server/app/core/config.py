@@ -3,11 +3,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = "gemini-3.6-flash"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = "qwen/qwen3.6-27b"
 
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY not set. Add it to server/.env")
+if not GROQ_API_KEY:
+    raise RuntimeError("GROQ_API_KEY not set. Add it to server/.env")
 
 # --- CORS ---------------------------------------------------------------
 # Manifest V3 extensions send an Origin header of the form

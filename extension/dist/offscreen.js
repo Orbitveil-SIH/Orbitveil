@@ -4640,7 +4640,7 @@ Kc.prototype.detectForVideo = Kc.prototype.H, Kc.prototype.detect = Kc.prototype
 
 // src/vision/face-detector.js
 var WASM_BASE_URL = chrome.runtime.getURL("wasm");
-var MODEL_URL = chrome.runtime.getURL("models/blaze_face_short_range.tflite");
+var MODEL_URL = chrome.runtime.getURL("models/blaze_face_full_range.tflite");
 var detectorInstance = null;
 var detectorLoadingPromise = null;
 async function getDetector() {
@@ -4656,7 +4656,7 @@ async function getDetector() {
         delegate: "GPU"
       },
       runningMode: "IMAGE",
-      minDetectionConfidence: 0.5
+      minDetectionConfidence: 0.3
     });
     console.log("[face-detector] detector loaded OK, model:", MODEL_URL);
     return detectorInstance;

@@ -1,4 +1,4 @@
-const SERVER_BASE_URL = "https://glorious-bassoon-r4p67997rpp52p9gr-8000.app.github.dev";
+const SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
 export async function analyze(taskDescription, domSummary, redactedImageB64) {
   const response = await fetch(`${SERVER_BASE_URL}/analyze`, {
     method: "POST",

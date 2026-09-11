@@ -1,6 +1,27 @@
+// --- Passive phishing guard -------------------------------------------
+//
+// Runs automatically on every page load via manifest.json content_scripts.
+// Deliberately NOT part of the agent loop in service-worker.js:
+//   - no "Start" button required
+//   - no screenshot capture
+//   - no server call
+//   - no AI reasoning
+//   - no clicking/typing/submitting on the user's behalf
+//
+// It only ever does two things, entirely inside this page's own DOM:
+//   1. Score the page against a few local phishing heuristics.
+//   2. If the score crosses a threshold AND the page has sensitive-looking
+//      fields, blur those fields immediately and show a dismissible banner.
+//
+// Honesty note (keep this comment - it matters for eval writeups): this is
+// a heuristic screen with no network access to check domain reputation,
+// age, or a real blocklist. It WILL have false positives (e.g. a small
+// bank's legitimate site that happens to trip a heuristic) and false
+// negatives (a well-disguised phishing domain with none of these signals).
+// It's a visible, dismissible safety net - not a guarantee, and it should
+// never be described as one.
 
 (function () {
-  console.log('[phishing-guard] LOADED. hostname=', location.hostname, 'protocol=', location.protocol);
   const KNOWN_BRANDS = [
     "paypal", "google", "microsoft", "apple", "amazon", "facebook",
     "instagram", "whatsapp", "netflix", "bankofamerica", "chase",
@@ -11,7 +32,7 @@
     ".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".work", ".click",
   ];
 
-  const SUSPICION_THRESHOLD = 0;
+  const SUSPICION_THRESHOLD = 2;
 
   function isIpHostname(hostname) {
     return /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);

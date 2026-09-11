@@ -6,6 +6,13 @@ AI browser agents need to see the screen to help with tasks — but "seeing the 
 
 ## Pipeline overview
 
+1. **Capture** — extension screenshots the current tab
+2. **Detect** — MediaPipe finds faces; a regex + DOM-attribute scanner finds PII fields
+3. **Redact** — faces get blurred, PII fields get blacked out, entirely on-device (canvas)
+4. **Send** — only the redacted image + a stripped DOM summary go to the server
+5. **Reason** — server forwards state + task + history to the VLM, gets back one next action
+6. **Execute** — extension runs that action on the real page, then loops back to step 1
+
 ## Why this satisfies the problem statement's core requirement
 
 > "Only this anonymized, unidentifiable data should be transmitted to the central server"
@@ -33,7 +40,7 @@ This step-by-step design (rather than asking the VLM to plan the whole task upfr
 | Face detection (MediaPipe) | Person 2 | Built, standalone-tested |
 | PII scanner (regex + DOM attributes) | Person 3 | Built |
 | Redaction (canvas blur/black-box) | Person 3 | Built |
-| Action executor (click/type/scroll on real page) | Person 1 | In progress |
+| Action executor (click/type/scroll on real page) | Person 1 | Built |
 | Server + session state | Person 4 (Aparna) | Built, tested end-to-end |
 | VLM integration | Person 4 (Aparna) | Built, tested end-to-end |
 | Protocol/orchestration | Person 5 | Built |
@@ -49,5 +56,9 @@ We went through two provider changes before landing on the current setup, worth 
 
 ## Known gaps as of this write-up
 
-- `extension/src/content/executor.js` is not yet implemented — this is the last piece blocking a true end-to-end test against the real extension (current server-side testing uses a blank placeholder image, not a real redacted screenshot)
-- Latency numbers in `eval/results.md` are from server-only testing (blank test image); full pipeline numbers pending `executor.js` and integration with the real capture → redact → analyze → execute loop
+- `extension/src/content/executor.js` is now implemented. What's still outstanding is a true end-to-end
+  run against it — most latency numbers in `eval/results.md` are still from server-only testing
+  (blank placeholder image via `eval/benchmark.py`), not a live capture → redact → analyze → execute pass.
+- `eval/results.md` sections 3 (redaction spatial accuracy) and 7 (client-side CPU/memory) are
+  still unmeasured — both need a manual check now that executor.js can drive a real run; see
+  `eval/results.md` for the exact steps.

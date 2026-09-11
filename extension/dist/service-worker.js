@@ -134,7 +134,7 @@ function executeActionInPage(action) {
 }
 
 // src/background/service-worker.js
-var SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
+var SERVER_BASE_URL = "NEW_URL_HERE";
 async function startSession(taskDescription) {
   const res = await fetch(`${SERVER_BASE_URL}/session/start`, {
     method: "POST",

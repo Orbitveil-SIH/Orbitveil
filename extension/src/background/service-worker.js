@@ -14,7 +14,7 @@ import { executeActionInPage } from "../content/executor.js";
 // createImageBitmap, Image, etc. See ensureOffscreenDocument() /
 // detectFacesViaOffscreen() / redactScreenshotViaOffscreen() below.
 
-const SERVER_BASE_URL = "https://omen-omen-recite.ngrok-free.dev";
+const SERVER_BASE_URL = "NEW_URL_HERE";
 
 async function startSession(taskDescription) {
   const res = await fetch(`${SERVER_BASE_URL}/session/start`, {

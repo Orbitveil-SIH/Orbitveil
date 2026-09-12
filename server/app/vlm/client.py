@@ -9,7 +9,7 @@ client = Groq(api_key=GROQ_API_KEY)
 
 MAX_RETRIES = 1
 RETRY_DELAY_SECONDS = 1
-MAX_COMPLETION_TOKENS = 512
+MAX_COMPLETION_TOKENS = 300
 
 # Qwen on Groq doesn't always follow tool-call schemas strictly (it may
 # rename/drop fields), and Groq validates tool calls server-side BEFORE

@@ -644,6 +644,37 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
 }
 self.runAutomationLoop = runAutomationLoop;
 var currentRunPromise = null;
+var autoProtectedTabs = /* @__PURE__ */ new Set();
+async function autoProtectTab(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab?.url || !/^(https?|file):\/\//.test(tab.url)) return;
+    const { redactions } = await getRedactedImageAndDetections(tab);
+    const shouldBlur = (redactions?.faces || 0) > 0 || (redactions?.pii || 0) > 0;
+    if (!shouldBlur) return;
+    const result = await applyLiveRedaction(tab, redactions);
+    console.log("Auto protection triggered by model detection:", result);
+  } catch (err) {
+    console.warn("Auto protection failed:", err?.message || err);
+  }
+}
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!tab || !tab.url || !/^(https?|file):\/\//.test(tab.url)) return;
+  if (changeInfo.status === "loading") {
+    autoProtectedTabs.delete(tabId);
+    return;
+  }
+  if (changeInfo.status !== "complete") return;
+  if (autoProtectedTabs.has(tabId)) return;
+  autoProtectedTabs.add(tabId);
+  setTimeout(() => {
+    autoProtectTab(tabId).catch(() => {
+    });
+  }, 500);
+});
+chrome.tabs.onRemoved.addListener((tabId) => {
+  autoProtectedTabs.delete(tabId);
+});
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "START_TASK") {
     if (currentRunPromise) {

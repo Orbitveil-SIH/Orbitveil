@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bank of Secure Trust</title>
+  <style>
+    :root {
+      --bg: #f3f5fb;
+      --panel: #ffffff;
+      --line: #dfe7f3;
+      --text: #0f172a;
+      --muted: #475569;
+      --brand: #1d4ed8;
+      --brand-dark: #1e3a8a;
+      --warn: #fbbf24;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #eef4ff, #f8fafc);
+      font-family: Arial, sans-serif;
+      color: var(--text);
+      padding: 40px 16px;
+    }
+
+    .shell {
+      max-width: 980px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+
+    .topbar {
+      background: linear-gradient(90deg, var(--brand), var(--brand-dark));
+      color: #fff;
+      padding: 18px 26px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr;
+      gap: 0;
+    }
+
+    .side {
+      background: #eef5ff;
+      border-right: 1px solid var(--line);
+      padding: 32px 28px;
+    }
+
+    .side h2 {
+      margin: 0 0 10px;
+      font-size: 2rem;
+    }
+
+    .side p {
+      margin: 0;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: var(--brand-dark);
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 7px 12px;
+      margin-bottom: 18px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .form-wrap {
+      padding: 26px 28px 28px;
+    }
+
+    form {
+      display: grid;
+      gap: 18px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field label {
+      font-size: 0.94rem;
+      font-weight: 600;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 1rem;
+      background: #fff;
+    }
+
+    .field input:focus {
+      outline: 2px solid rgba(29, 78, 216, 0.15);
+      border-color: var(--brand);
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 13px 18px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      background: var(--brand);
+      color: #fff;
+      min-width: 160px;
+    }
+
+    .ghost {
+      background: #e2e8f0;
+      color: var(--text);
+    }
+
+    .warning {
+      background: #fff8db;
+      border: 1px solid #fce7a2;
+      color: #7c5b00;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 760px) {
+      .content { grid-template-columns: 1fr; }
+      .side { border-right: none; border-bottom: 1px solid var(--line); }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar">
+      <span>SecureBank</span>
+      <span>Account Recovery</span>
+    </div>
+
+    <div class="content">
+      <aside class="side">
+        <div class="badge">Security alert</div>
+        <h2>Verify your identity</h2>
+        <p>
+          We noticed unusual activity. Please verify your account to prevent unauthorized access.
+        </p>
+      </aside>
+
+      <div class="form-wrap">
+        <div class="warning">
+          This request is urgent. Please complete the form below to confirm your identity and protect your account.
+        </div>
+
+        <form id="fake-site-form">
+          <div class="field">
+            <label for="full-name">Full name</label>
+            <input id="full-name" name="full_name" type="text" value="Rohan Mehta" autocomplete="name" />
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" value="rohan.mehta@example.com" autocomplete="email" />
+            </div>
+            <div class="field">
+              <label for="phone">Phone</label>
+              <input id="phone" name="phone" type="tel" value="+91 98765 43210" autocomplete="tel" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" value="Sup3rSecret!23" autocomplete="current-password" />
+            </div>
+            <div class="field">
+              <label for="card">Card number</label>
+              <input id="card" name="card_number" type="text" value="4111 1111 1111 1111" autocomplete="cc-number" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="dob">Date of birth</label>
+            <input id="dob" name="dob" type="date" value="1997-08-14" />
+          </div>
+
+          <div class="actions">
+            <button type="button" class="ghost" id="cancel-btn">Cancel</button>
+            <button type="submit">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('fake-site-form');
+    const cancelBtn = document.getElementById('cancel-btn');
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      console.log('[FAKE SITE] submitted');
+      window.location.href = 'phishing-success.html';
+    });
+
+    cancelBtn.addEventListener('click', function () {
+      window.location.href = 'phishing-success.html';
+    });
+  </script>
+</body>
+</html>

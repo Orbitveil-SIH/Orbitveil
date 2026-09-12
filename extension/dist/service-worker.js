@@ -1,5 +1,16 @@
 // src/content/capture.js
 async function captureScreenshot() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, windowType: "normal" });
+    if (tab && tab.id) {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => window.scrollTo(0, 0)
+      });
+    }
+  } catch (e) {
+    console.warn("captureScreenshot: failed to reset scroll position:", e.message);
+  }
   const dataUrl = await chrome.tabs.captureVisibleTab(null, {
     format: "png"
   });
@@ -308,7 +319,7 @@ async function applyLiveRedaction(tab) {
         "credit_card"
       ]);
       const sensitiveAutocomplete = /* @__PURE__ */ new Set(["name", "email", "tel", "cc-number", "new-password", "current-password"]);
-      const shouldProtect = canBlur();
+      const shouldProtect = true;
       if (!shouldProtect) return { protected: 0 };
       const elements = [...document.querySelectorAll("input, textarea, select, img")];
       let protectedCount = 0;

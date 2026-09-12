@@ -577,7 +577,6 @@ async function clearOnPageRedactionOverlay(tab) {
   }
 }
 
-async function getRedactedImageAndDetections(tab) {
   //const screenshotB64 = await captureScreenshot();
 async function getRedactedImageAndDetections(tab) {
   const localStart = performance.now();

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Secure Account Verification</title>
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --primary: #0f172a;
+      --muted: #64748b;
+      --line: #dfe7f3;
+      --accent: #0f7ae5;
+      --danger: #dc2626;
+      --success: #16a34a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #eef4ff, #f8fafc);
+      color: var(--primary);
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .page {
+      width: min(100%, 980px);
+      display: grid;
+      grid-template-columns: 1.1fr 1.3fr;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .brand-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .brand-logo {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #ffffff, #dfe7f3 42%, #b7c7db 100%);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 52px;
+      color: var(--accent);
+      box-shadow: 0 20px 40px rgba(15, 122, 229, 0.12);
+      margin-bottom: 18px;
+    }
+
+    .brand-tag {
+      font-size: 14px;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.1;
+      text-align: center;
+    }
+
+    .subtext {
+      margin: 0;
+      text-align: center;
+      color: var(--muted);
+      max-width: 500px;
+      line-height: 1.6;
+    }
+
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      padding: 28px 28px 20px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #e8f1ff;
+      color: var(--accent);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .login-card h2 {
+      margin: 0 0 18px;
+      font-size: 2rem;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field label {
+      font-size: 0.96rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .field input, .field select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 1rem;
+      background: #fff;
+      color: var(--primary);
+    }
+
+    .field input:focus, .field select:focus {
+      outline: 2px solid rgba(15, 122, 229, 0.14);
+      border-color: var(--accent);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 1rem;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+      min-width: 170px;
+    }
+
+    .secondary {
+      background: #e7edf5;
+      color: var(--primary);
+      border: 1px solid var(--line);
+      min-width: 0;
+    }
+
+    .security-note {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    .security-note strong { color: var(--danger); }
+
+    @media (max-width: 760px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="brand-panel">
+      <div class="brand-logo">S</div>
+      <div class="brand-tag">secure identity</div>
+      <h1>Verify your account</h1>
+      <p class="subtext">
+        We detected a security issue on your account. Please complete this verification form to keep your account protected.
+      </p>
+    </section>
+
+    <section class="login-card">
+      <div class="badge">Phishing Demo</div>
+      <h2>Account recovery</h2>
+
+      <form id="phish-form">
+        <div class="form-grid">
+          <div class="field">
+            <label for="full-name">Full name</label>
+            <input id="full-name" name="full_name" type="text" value="Rohan Mehta" autocomplete="name" />
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" value="rohan.mehta@example.com" autocomplete="email" />
+            </div>
+            <div class="field">
+              <label for="phone">Phone</label>
+              <input id="phone" name="phone" type="tel" value="+91 98765 43210" autocomplete="tel" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" value="Sup3rSecret!23" autocomplete="current-password" />
+          </div>
+
+          <div class="field">
+            <label for="card">Card number</label>
+            <input id="card" name="card_number" type="text" value="4111 1111 1111 1111" autocomplete="cc-number" />
+          </div>
+
+          <div class="field">
+            <label for="dob">Date of birth</label>
+            <input id="dob" name="dob" type="date" value="1997-08-14" />
+          </div>
+
+          <div class="actions">
+            <button type="submit">Submit</button>
+            <button type="button" class="secondary" id="cancel-btn">Cancel</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="security-note">
+        <strong>Security check:</strong> your session may be flagged by suspicious activity. Complete the recovery form to continue.
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const form = document.getElementById('phish-form');
+    const cancelBtn = document.getElementById('cancel-btn');
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      console.log('[PHISH DEMO] submitted');
+      window.location.href = 'phishing-success.html';
+    });
+
+    cancelBtn.addEventListener('click', function () {
+      window.location.href = 'phishing-success.html';
+    });
+  </script>
+</body>
+</html>

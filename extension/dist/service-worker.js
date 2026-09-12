@@ -340,50 +340,6 @@ async function applyLiveRedaction(tab, redactions = { faces: 0, pii: 0 }) {
           protectedCount++;
         }
       }
-      const existingBanner = document.getElementById("orbitveil-phishing-banner");
-      if (!existingBanner) {
-        const banner = document.createElement("div");
-        banner.id = "orbitveil-phishing-banner";
-        banner.style.cssText = [
-          "position:fixed",
-          "top:0",
-          "left:0",
-          "right:0",
-          "z-index:2147483647",
-          "background:#b91c1c",
-          "color:#fff",
-          "font-family:system-ui,sans-serif",
-          "font-size:14px",
-          "padding:10px 16px",
-          "display:flex",
-          "align-items:center",
-          "justify-content:space-between",
-          "box-shadow:0 2px 6px rgba(0,0,0,0.3)"
-        ].join(";");
-        const text = document.createElement("span");
-        text.textContent = "\u26A0 Orbitveil: face/PII detected \u2014 this page is protected until you choose to trust it.";
-        const btn = document.createElement("button");
-        btn.textContent = "I trust this site \u2014 show fields";
-        btn.style.cssText = [
-          "margin-left:12px",
-          "background:#fff",
-          "color:#b91c1c",
-          "border:none",
-          "border-radius:4px",
-          "padding:6px 10px",
-          "font-size:13px",
-          "cursor:pointer",
-          "flex-shrink:0"
-        ].join(";");
-        btn.onclick = () => {
-          const items = [...document.querySelectorAll("input, textarea, select, img")];
-          for (const item of items) unmark(item);
-          banner.remove();
-        };
-        banner.appendChild(text);
-        banner.appendChild(btn);
-        document.documentElement.appendChild(banner);
-      }
       return { protected: protectedCount };
     }
   });
@@ -604,6 +560,7 @@ var stopRequested = false;
 async function runAutomationLoop(taskDescription, onProgress = () => {
 }) {
   stopRequested = false;
+  let detectionCache = null;
   onProgress("Starting session...");
   const { session_id } = await startSession(taskDescription);
   console.log("Session started:", session_id);
@@ -617,12 +574,20 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
       }
       onProgress(`Step ${step}: reading page...`);
       const tab = await getActiveTab();
-      const liveProtection = await applyLiveRedaction(tab);
+      const tabFingerprint = `${tab.id}:${tab.url || ""}`;
+      if (!detectionCache || detectionCache.tabId !== tab.id || detectionCache.tabFingerprint !== tabFingerprint) {
+        onProgress(`Step ${step}: detecting faces & PII...`);
+        detectionCache = {
+          tabId: tab.id,
+          tabFingerprint,
+          ...await getRedactedImageAndDetections(tab)
+        };
+      }
+      const { imageB64: redactedImageB64, redactions } = detectionCache;
+      const liveProtection = await applyLiveRedaction(tab, redactions);
       console.log("Live page protection applied:", liveProtection);
       const domSummaryRaw = await getDomSummaryFromActiveTab(tab);
       const domSummary = JSON.stringify(domSummaryRaw);
-      onProgress(`Step ${step}: detecting faces & PII...`);
-      const { imageB64: redactedImageB64, redactions } = await getRedactedImageAndDetections(tab);
       onProgress(`Step ${step}: redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s). Analyzing...`);
       let result;
       try {

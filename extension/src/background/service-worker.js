@@ -259,39 +259,9 @@ async function applyLiveRedaction(tab, redactions = { faces: 0, pii: 0 }) {
         }
       }
 
-      const existingBanner = document.getElementById("orbitveil-phishing-banner");
-      if (!existingBanner) {
-        const banner = document.createElement("div");
-        banner.id = "orbitveil-phishing-banner";
-        banner.style.cssText = [
-          "position:fixed", "top:0", "left:0", "right:0", "z-index:2147483647",
-          "background:#b91c1c", "color:#fff", "font-family:system-ui,sans-serif",
-          "font-size:14px", "padding:10px 16px", "display:flex",
-          "align-items:center", "justify-content:space-between",
-          "box-shadow:0 2px 6px rgba(0,0,0,0.3)"
-        ].join(";");
-
-        const text = document.createElement("span");
-        text.textContent = "⚠ Orbitveil: face/PII detected — this page is protected until you choose to trust it.";
-
-        const btn = document.createElement("button");
-        btn.textContent = "I trust this site — show fields";
-        btn.style.cssText = [
-          "margin-left:12px", "background:#fff", "color:#b91c1c", "border:none",
-          "border-radius:4px", "padding:6px 10px", "font-size:13px",
-          "cursor:pointer", "flex-shrink:0"
-        ].join(";");
-        btn.onclick = () => {
-          const items = [...document.querySelectorAll("input, textarea, select, img")];
-          for (const item of items) unmark(item);
-          banner.remove();
-        };
-
-        banner.appendChild(text);
-        banner.appendChild(btn);
-        document.documentElement.appendChild(banner);
-      }
-
+      // Intentionally keep the page blurred without showing the trust banner
+      // immediately at load. The protection remains active, but the user does
+      // not get the trust prompt on first render.
       return { protected: protectedCount };
     },
   });
@@ -676,10 +646,12 @@ const MAX_STEPS = 15;
 
 let stopRequested = false;
 
-// onProgress(status) is called at each stage so the popup can show live
-// status text. status is a short string, e.g. "Capturing screen...".
+// Running full screenshot + face detection on every loop iteration is expensive
+// and unnecessary for the same page. Cache the result by tab so we only re-run
+// the expensive detection pass when the tab or page actually changes.
 async function runAutomationLoop(taskDescription, onProgress = () => {}) {
   stopRequested = false;
+  let detectionCache = null;
   onProgress("Starting session...");
   const { session_id } = await startSession(taskDescription);
   console.log("Session started:", session_id);
@@ -698,9 +670,18 @@ async function runAutomationLoop(taskDescription, onProgress = () => {}) {
       }
       onProgress(`Step ${step}: reading page...`);
       const tab = await getActiveTab();
+      const tabFingerprint = `${tab.id}:${tab.url || ""}`;
 
-      onProgress(`Step ${step}: detecting faces & PII...`);
-      const { imageB64: redactedImageB64, redactions } = await getRedactedImageAndDetections(tab);
+      if (!detectionCache || detectionCache.tabId !== tab.id || detectionCache.tabFingerprint !== tabFingerprint) {
+        onProgress(`Step ${step}: detecting faces & PII...`);
+        detectionCache = {
+          tabId: tab.id,
+          tabFingerprint,
+          ...(await getRedactedImageAndDetections(tab)),
+        };
+      }
+
+      const { imageB64: redactedImageB64, redactions } = detectionCache;
       const liveProtection = await applyLiveRedaction(tab, redactions);
       console.log("Live page protection applied:", liveProtection);
 

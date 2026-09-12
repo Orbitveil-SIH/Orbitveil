@@ -37,9 +37,10 @@
   let observer = null;
 
   function isMaliciousDemoPage() {
-    const demoRisk = document.body?.dataset?.orbitveilDemoRisk || "";
     const params = new URLSearchParams(window.location.search);
-    return demoRisk === "malicious" || params.get("mode") === "malicious";
+    if (params.get("mode") === "malicious") return true;
+    const demoRisk = document.body?.dataset?.orbitveilDemoRisk || "";
+    return demoRisk === "malicious";
   }
 
   function isIpHostname(hostname) {
@@ -216,39 +217,10 @@
   }
 
   function showBanner(reasons, onDismiss) {
-    if (document.getElementById("orbitveil-phishing-banner")) return;
-
-    const banner = document.createElement("div");
-    banner.id = "orbitveil-phishing-banner";
-    banner.style.cssText = [
-      "position:fixed", "top:0", "left:0", "right:0", "z-index:2147483647",
-      "background:#b91c1c", "color:#fff", "font-family:system-ui,sans-serif",
-      "font-size:14px", "padding:10px 16px", "display:flex",
-      "align-items:center", "justify-content:space-between",
-      "box-shadow:0 2px 6px rgba(0,0,0,0.3)",
-    ].join(";");
-
-    const text = document.createElement("span");
-    text.textContent =
-      "\u26A0 Orbitveil: this page has signs of being a phishing clone \u2014 " +
-      "sensitive fields have been hidden. (" + reasons.join("; ") + ")";
-
-    const btn = document.createElement("button");
-    btn.textContent = "I trust this site \u2014 show fields";
-    btn.style.cssText = [
-      "margin-left:12px", "background:#fff", "color:#b91c1c", "border:none",
-      "border-radius:4px", "padding:6px 10px", "font-size:13px",
-      "cursor:pointer", "flex-shrink:0",
-    ].join(";");
-    btn.onclick = () => {
-      disableGuard();
-      onDismiss();
-      banner.remove();
-    };
-
-    banner.appendChild(text);
-    banner.appendChild(btn);
-    document.documentElement.appendChild(banner);
+    // Intentionally disabled for the default live-redaction flow.
+    // The page should remain blurred without an immediate trust banner,
+    // keeping the protection unobtrusive while still hiding the sensitive data.
+    return;
   }
 
   function run() {
@@ -261,9 +233,6 @@
     if (sensitiveEls.length === 0) return; // nothing worth protecting yet
 
     sensitiveEls.forEach(redactElement);
-    showBanner(reasons, () => {
-      sensitiveEls.forEach(restoreElement);
-    });
 
     // Forms/fields that render after initial load (lazy JS-rendered
     // pages) still need to be caught, since this runs once at DOM-ready.

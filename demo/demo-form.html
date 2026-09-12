@@ -86,15 +86,17 @@
 </p>
 
 <script>
-  // Default demo is the real-page protection flow: blur sensitive fields on the
-  // live page, and keep the form usable for evaluation / smoke testing.
-  document.body.dataset.orbitveilDemoRisk = 'safe';
+  // Respect the URL mode so the malicious demo can actually trigger live
+  // protection instead of being silently reset back to safe on page load.
+  const params = new URLSearchParams(window.location.search);
+  const isMalicious = params.get('mode') === 'malicious';
+  document.body.dataset.orbitveilDemoRisk = isMalicious ? 'malicious' : 'safe';
 
   // Prevent actual navigation during testing; log submission for eval harness
   document.getElementById('signup-form').addEventListener('submit', function(e) {
     e.preventDefault();
     console.log('[DEMO FORM] Submitted:', {
-      mode: 'safe',
+      mode: isMalicious ? 'malicious' : 'safe',
       bio: document.getElementById('bio').value,
       favorite_color: document.getElementById('favorite-color').value
     });

@@ -24,7 +24,7 @@ from typing import Optional
 # Cap on how much history we keep/send to the VLM. Long tasks would
 # otherwise grow the prompt unboundedly and blow past context/latency
 # budgets. Older steps are dropped, oldest first.
-MAX_HISTORY_STEPS = 20
+MAX_HISTORY_STEPS = 5
 
 
 class SessionStatus(str, Enum):

@@ -261,6 +261,11 @@ async function applyLiveRedaction(tab, redactions = { faces: 0, pii: 0 }) {
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
+      const pageFingerprint = `${location.href}|${document.body?.dataset?.orbitveilDemoRisk || "unknown"}`;
+      if (window.__orbitveilPageFingerprint === pageFingerprint) {
+        return { protected: 0, reason: "already-protected-page" };
+      }
+      window.__orbitveilPageFingerprint = pageFingerprint;
       const mark = (el) => {
         if (!el || el.dataset.orbitveilProtected === "true") return;
         const originalFilter = el.style.filter || "";
@@ -561,6 +566,7 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
 }) {
   stopRequested = false;
   let detectionCache = null;
+  let pageAlreadyProtectedThisRun = false;
   onProgress("Starting session...");
   const { session_id } = await startSession(taskDescription);
   console.log("Session started:", session_id);
@@ -584,8 +590,14 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
         };
       }
       const { imageB64: redactedImageB64, redactions } = detectionCache;
+      const hasSensitiveContent = (redactions?.faces || 0) > 0 || (redactions?.pii || 0) > 0;
       const liveProtection = await applyLiveRedaction(tab, redactions);
       console.log("Live page protection applied:", liveProtection);
+      if (hasSensitiveContent && !pageAlreadyProtectedThisRun) {
+        pageAlreadyProtectedThisRun = true;
+        onProgress("Sensitive content detected and protected; stopping repeated re-analysis on the same page.");
+        return { status: "protected", steps: step, redactions };
+      }
       const domSummaryRaw = await getDomSummaryFromActiveTab(tab);
       const domSummary = JSON.stringify(domSummaryRaw);
       onProgress(`Step ${step}: redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s). Analyzing...`);
@@ -645,21 +657,28 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
 self.runAutomationLoop = runAutomationLoop;
 var currentRunPromise = null;
 var autoProtectedTabs = /* @__PURE__ */ new Set();
+function isPhishingTargetUrl(url) {
+  if (!url) return false;
+  const normalized = url.toLowerCase();
+  return normalized.includes("mode=malicious") || normalized.includes("phishing") || normalized.includes("fake-bank") || normalized.includes("fake-site") || normalized.includes("securebank") || normalized.includes("bankofsecure") || normalized.includes("verify-your-account") || normalized.includes("account-recovery") || normalized.includes("malicious");
+}
 async function autoProtectTab(tabId) {
   try {
     const tab = await chrome.tabs.get(tabId);
     if (!tab?.url || !/^(https?|file):\/\//.test(tab.url)) return;
+    if (!isPhishingTargetUrl(tab.url)) return;
     const { redactions } = await getRedactedImageAndDetections(tab);
     const shouldBlur = (redactions?.faces || 0) > 0 || (redactions?.pii || 0) > 0;
     if (!shouldBlur) return;
     const result = await applyLiveRedaction(tab, redactions);
-    console.log("Auto protection triggered by model detection:", result);
+    console.log("Auto protection triggered for malicious target:", result);
   } catch (err) {
     console.warn("Auto protection failed:", err?.message || err);
   }
 }
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!tab || !tab.url || !/^(https?|file):\/\//.test(tab.url)) return;
+  if (!isPhishingTargetUrl(tab.url)) return;
   if (changeInfo.status === "loading") {
     autoProtectedTabs.delete(tabId);
     return;

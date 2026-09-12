@@ -7,8 +7,9 @@ from app.vlm.prompts import build_prompt
 
 client = Groq(api_key=GROQ_API_KEY)
 
-MAX_RETRIES = 2
-RETRY_DELAY_SECONDS = 2
+MAX_RETRIES = 1
+RETRY_DELAY_SECONDS = 1
+MAX_COMPLETION_TOKENS = 512
 
 # Qwen on Groq doesn't always follow tool-call schemas strictly (it may
 # rename/drop fields), and Groq validates tool calls server-side BEFORE
@@ -69,8 +70,8 @@ def get_next_action(task_description: str, dom_summary: str, redacted_image_b64:
                 reasoning_effort="none",
                 temperature=0.7,
                 top_p=0.8,
-                presence_penalty=1.5,
-                max_completion_tokens=2048,
+                presence_penalty=0.2,
+                max_completion_tokens=MAX_COMPLETION_TOKENS,
                 timeout=15,
             )
 

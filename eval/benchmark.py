@@ -58,6 +58,8 @@ def run_benchmark(max_steps: int = 10, delay_between_steps: float = 2.5):
 
     image_b64 = make_blank_test_image_b64()
     results = []
+    consecutive_waits = 0
+    last_action = None
 
     for step in range(1, max_steps + 1):
         print(f"--- Step {step} ---")
@@ -89,6 +91,16 @@ def run_benchmark(max_steps: int = 10, delay_between_steps: float = 2.5):
         if action["type"] == "done":
             print("Agent signaled completion.")
             break
+
+        if action["type"] == "wait":
+            consecutive_waits += 1
+            if action == last_action or consecutive_waits >= 3:
+                print("Stopping benchmark: repeated wait actions indicate the model is stalling.")
+                break
+        else:
+            consecutive_waits = 0
+
+        last_action = action
 
         # Be polite to Groq's free-tier rate limit between steps
         time.sleep(delay_between_steps)

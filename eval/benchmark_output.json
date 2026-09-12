@@ -1,40 +1,22 @@
 {
-  "session_id": "32dbe5ad39e340159859d6820f931a67",
+  "session_id": "ee300a1ce5a04457839d8951e42593de",
   "steps": [
     {
       "step": 1,
-      "elapsed_ms": 606.3,
-      "action_type": "type",
-      "target": "textarea[name=\"bio\"]"
+      "elapsed_ms": 6700.7,
+      "action_type": "wait",
+      "target": null
     },
     {
       "step": 2,
-      "elapsed_ms": 748.2,
-      "action_type": "click",
-      "target": "select[name=\"favorite_color\"]"
+      "elapsed_ms": 6471.0,
+      "action_type": "wait",
+      "target": null
     },
     {
       "step": 3,
-      "elapsed_ms": 20576.8,
-      "action_type": "click",
-      "target": "select[name=\"favorite_color\"] option"
-    },
-    {
-      "step": 4,
-      "elapsed_ms": 25665.8,
-      "action_type": "click",
-      "target": "select[name=\"favorite_color\"] option"
-    },
-    {
-      "step": 5,
-      "elapsed_ms": 20657.5,
-      "action_type": "click",
-      "target": "button[type=\"submit\"]"
-    },
-    {
-      "step": 6,
-      "elapsed_ms": 21544.8,
-      "action_type": "done",
+      "elapsed_ms": 6394.2,
+      "action_type": "wait",
       "target": null
     }
   ]

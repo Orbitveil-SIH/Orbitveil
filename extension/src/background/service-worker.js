@@ -230,7 +230,11 @@ async function applyLiveRedaction(tab) {
       ]);
       const sensitiveAutocomplete = new Set(["name", "email", "tel", "cc-number", "new-password", "current-password"]);
 
-      const shouldProtect = canBlur();
+      // Always protect for the core demo - canBlur()'''s suspicious-site
+      // heuristic is for a separate phishing-warning feature, not a gate
+      // on the core PII/face redaction, which must always run regardless
+      // of what page it'''s on.
+      const shouldProtect = true;
       if (!shouldProtect) return { protected: 0 };
 
       const elements = [...document.querySelectorAll("input, textarea, select, img")];
@@ -603,10 +607,6 @@ console.log(
 console.log(
   `[getRedactedImageAndDetections] captured screenshot: ${dims.width}x${dims.height}, faces found: ${faces.length}`
 );
-
-// Visual demo layer - draw the same redaction live on the actual page.
-// Does not affect what gets sent to the server.
-await drawOnPageRedactionOverlay(tab, faces, dims.width, dims.height);
 
 
 const piiStart = performance.now();

@@ -591,12 +591,13 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
       }
       const { imageB64: redactedImageB64, redactions } = detectionCache;
       const hasSensitiveContent = (redactions?.faces || 0) > 0 || (redactions?.pii || 0) > 0;
-      const liveProtection = await applyLiveRedaction(tab, redactions);
-      console.log("Live page protection applied:", liveProtection);
-      if (hasSensitiveContent && !pageAlreadyProtectedThisRun) {
-        pageAlreadyProtectedThisRun = true;
-        onProgress("Sensitive content detected and protected; stopping repeated re-analysis on the same page.");
-        return { status: "protected", steps: step, redactions };
+      if (hasSensitiveContent) {
+        const liveProtection = await applyLiveRedaction(tab, redactions);
+        if (!pageAlreadyProtectedThisRun) {
+          pageAlreadyProtectedThisRun = true;
+          console.log("Live page protection applied:", liveProtection);
+          onProgress(`Sensitive content detected - live-blurred ${liveProtection.protected ?? 0} region(s) on the page.`);
+        }
       }
       const domSummaryRaw = await getDomSummaryFromActiveTab(tab);
       const domSummary = JSON.stringify(domSummaryRaw);

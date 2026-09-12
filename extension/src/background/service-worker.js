@@ -169,19 +169,15 @@ async function redactScreenshotViaOffscreen(screenshotB64, faces, pii) {
   return response.result; // { redactedScreenshot, redactions }
 }
 
-async function applyLiveRedaction(tab) {
+async function applyLiveRedaction(tab, redactions = { faces: 0, pii: 0 }) {
+  const shouldBlur = (redactions?.faces || 0) > 0 || (redactions?.pii || 0) > 0;
+  if (!shouldBlur) {
+    return { protected: 0, reason: "no-faces-or-pii-detected" };
+  }
+
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
-      const canBlur = () => {
-        const params = new URLSearchParams(window.location.search);
-        const demoRisk = document.body?.dataset?.orbitveilDemoRisk || "";
-        const malicious = demoRisk === "malicious" || params.get("mode") === "malicious";
-        const hostname = window.location.hostname.toLowerCase();
-        const suspicious = [".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".work", ".click"].some((tld) => hostname.endsWith(tld));
-        return malicious || suspicious || hostname.includes("paypal") || hostname.includes("google") || hostname.includes("microsoft") || hostname.includes("amazon");
-      };
-
       const mark = (el) => {
         if (!el || el.dataset.orbitveilProtected === "true") return;
         const originalFilter = el.style.filter || "";
@@ -189,12 +185,14 @@ async function applyLiveRedaction(tab) {
         const originalOpacity = el.style.opacity || "";
         const originalBackground = el.style.background || "";
         const originalColor = el.style.color || "";
+        const originalUserSelect = el.style.userSelect || "";
         el.dataset.orbitveilProtected = "true";
         el.dataset.orbitveilOriginalFilter = originalFilter;
         el.dataset.orbitveilOriginalPointerEvents = originalPointerEvents;
         el.dataset.orbitveilOriginalOpacity = originalOpacity;
         el.dataset.orbitveilOriginalBackground = originalBackground;
         el.dataset.orbitveilOriginalColor = originalColor;
+        el.dataset.orbitveilOriginalUserSelect = originalUserSelect;
 
         if (el.tagName && el.tagName.toLowerCase() === "img") {
           el.style.filter = "blur(12px) brightness(0.35) grayscale(1)";
@@ -204,6 +202,7 @@ async function applyLiveRedaction(tab) {
           el.style.background = "rgba(0,0,0,0.85)";
           el.style.color = "transparent";
           el.style.opacity = "0.35";
+          el.style.userSelect = "none";
         }
         el.style.pointerEvents = "none";
       };
@@ -215,11 +214,13 @@ async function applyLiveRedaction(tab) {
         el.style.opacity = el.dataset.orbitveilOriginalOpacity || "";
         el.style.background = el.dataset.orbitveilOriginalBackground || "";
         el.style.color = el.dataset.orbitveilOriginalColor || "";
+        el.style.userSelect = el.dataset.orbitveilOriginalUserSelect || "";
         delete el.dataset.orbitveilOriginalFilter;
         delete el.dataset.orbitveilOriginalPointerEvents;
         delete el.dataset.orbitveilOriginalOpacity;
         delete el.dataset.orbitveilOriginalBackground;
         delete el.dataset.orbitveilOriginalColor;
+        delete el.dataset.orbitveilOriginalUserSelect;
         delete el.dataset.orbitveilProtected;
       };
 
@@ -229,13 +230,6 @@ async function applyLiveRedaction(tab) {
         "email", "password", "account_number", "credit_card",
       ]);
       const sensitiveAutocomplete = new Set(["name", "email", "tel", "cc-number", "new-password", "current-password"]);
-
-      // Always protect for the core demo - canBlur()'''s suspicious-site
-      // heuristic is for a separate phishing-warning feature, not a gate
-      // on the core PII/face redaction, which must always run regardless
-      // of what page it'''s on.
-      const shouldProtect = true;
-      if (!shouldProtect) return { protected: 0 };
 
       const elements = [...document.querySelectorAll("input, textarea, select, img")];
       let protectedCount = 0;
@@ -278,7 +272,7 @@ async function applyLiveRedaction(tab) {
         ].join(";");
 
         const text = document.createElement("span");
-        text.textContent = "⚠ Orbitveil: this page looks suspicious — protected until you trust it.";
+        text.textContent = "⚠ Orbitveil: face/PII detected — this page is protected until you choose to trust it.";
 
         const btn = document.createElement("button");
         btn.textContent = "I trust this site — show fields";
@@ -301,6 +295,7 @@ async function applyLiveRedaction(tab) {
       return { protected: protectedCount };
     },
   });
+
   return result || { protected: 0 };
 }
 
@@ -704,14 +699,13 @@ async function runAutomationLoop(taskDescription, onProgress = () => {}) {
       onProgress(`Step ${step}: reading page...`);
       const tab = await getActiveTab();
 
-      const liveProtection = await applyLiveRedaction(tab);
+      onProgress(`Step ${step}: detecting faces & PII...`);
+      const { imageB64: redactedImageB64, redactions } = await getRedactedImageAndDetections(tab);
+      const liveProtection = await applyLiveRedaction(tab, redactions);
       console.log("Live page protection applied:", liveProtection);
 
       const domSummaryRaw = await getDomSummaryFromActiveTab(tab);
       const domSummary = JSON.stringify(domSummaryRaw);
-
-      onProgress(`Step ${step}: detecting faces & PII...`);
-      const { imageB64: redactedImageB64, redactions } = await getRedactedImageAndDetections(tab);
 
       onProgress(`Step ${step}: redacted ${redactions.faces} face(s), ${redactions.pii} PII region(s). Analyzing...`);
 

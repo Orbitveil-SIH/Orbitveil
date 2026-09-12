@@ -253,18 +253,14 @@ async function redactScreenshotViaOffscreen(screenshotB64, faces, pii) {
   }
   return response.result;
 }
-async function applyLiveRedaction(tab) {
+async function applyLiveRedaction(tab, redactions = { faces: 0, pii: 0 }) {
+  const shouldBlur = (redactions?.faces || 0) > 0 || (redactions?.pii || 0) > 0;
+  if (!shouldBlur) {
+    return { protected: 0, reason: "no-faces-or-pii-detected" };
+  }
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
-      const canBlur = () => {
-        const params = new URLSearchParams(window.location.search);
-        const demoRisk = document.body?.dataset?.orbitveilDemoRisk || "";
-        const malicious = demoRisk === "malicious" || params.get("mode") === "malicious";
-        const hostname = window.location.hostname.toLowerCase();
-        const suspicious = [".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".work", ".click"].some((tld) => hostname.endsWith(tld));
-        return malicious || suspicious || hostname.includes("paypal") || hostname.includes("google") || hostname.includes("microsoft") || hostname.includes("amazon");
-      };
       const mark = (el) => {
         if (!el || el.dataset.orbitveilProtected === "true") return;
         const originalFilter = el.style.filter || "";
@@ -272,12 +268,14 @@ async function applyLiveRedaction(tab) {
         const originalOpacity = el.style.opacity || "";
         const originalBackground = el.style.background || "";
         const originalColor = el.style.color || "";
+        const originalUserSelect = el.style.userSelect || "";
         el.dataset.orbitveilProtected = "true";
         el.dataset.orbitveilOriginalFilter = originalFilter;
         el.dataset.orbitveilOriginalPointerEvents = originalPointerEvents;
         el.dataset.orbitveilOriginalOpacity = originalOpacity;
         el.dataset.orbitveilOriginalBackground = originalBackground;
         el.dataset.orbitveilOriginalColor = originalColor;
+        el.dataset.orbitveilOriginalUserSelect = originalUserSelect;
         if (el.tagName && el.tagName.toLowerCase() === "img") {
           el.style.filter = "blur(12px) brightness(0.35) grayscale(1)";
           el.style.opacity = "0.2";
@@ -286,6 +284,7 @@ async function applyLiveRedaction(tab) {
           el.style.background = "rgba(0,0,0,0.85)";
           el.style.color = "transparent";
           el.style.opacity = "0.35";
+          el.style.userSelect = "none";
         }
         el.style.pointerEvents = "none";
       };
@@ -296,11 +295,13 @@ async function applyLiveRedaction(tab) {
         el.style.opacity = el.dataset.orbitveilOriginalOpacity || "";
         el.style.background = el.dataset.orbitveilOriginalBackground || "";
         el.style.color = el.dataset.orbitveilOriginalColor || "";
+        el.style.userSelect = el.dataset.orbitveilOriginalUserSelect || "";
         delete el.dataset.orbitveilOriginalFilter;
         delete el.dataset.orbitveilOriginalPointerEvents;
         delete el.dataset.orbitveilOriginalOpacity;
         delete el.dataset.orbitveilOriginalBackground;
         delete el.dataset.orbitveilOriginalColor;
+        delete el.dataset.orbitveilOriginalUserSelect;
         delete el.dataset.orbitveilProtected;
       };
       const sensitiveNames = /* @__PURE__ */ new Set([
@@ -319,8 +320,6 @@ async function applyLiveRedaction(tab) {
         "credit_card"
       ]);
       const sensitiveAutocomplete = /* @__PURE__ */ new Set(["name", "email", "tel", "cc-number", "new-password", "current-password"]);
-      const shouldProtect = true;
-      if (!shouldProtect) return { protected: 0 };
       const elements = [...document.querySelectorAll("input, textarea, select, img")];
       let protectedCount = 0;
       for (const el of elements) {
@@ -362,7 +361,7 @@ async function applyLiveRedaction(tab) {
           "box-shadow:0 2px 6px rgba(0,0,0,0.3)"
         ].join(";");
         const text = document.createElement("span");
-        text.textContent = "\u26A0 Orbitveil: this page looks suspicious \u2014 protected until you trust it.";
+        text.textContent = "\u26A0 Orbitveil: face/PII detected \u2014 this page is protected until you choose to trust it.";
         const btn = document.createElement("button");
         btn.textContent = "I trust this site \u2014 show fields";
         btn.style.cssText = [

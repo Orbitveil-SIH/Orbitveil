@@ -15,6 +15,12 @@ import { executeActionInPage } from "../content/executor.js";
 // detectFacesViaOffscreen() / redactScreenshotViaOffscreen() below.
 
 
+// TODO(Aparna): confirm this matches wherever your server is actually
+// running right now - localhost if you're running server/main.py locally,
+// or your current ngrok URL if you're tunneling. This line went missing
+// somewhere in a previous edit/merge and broke every network call.
+const SERVER_BASE_URL = "http://localhost:8000";
+
 async function startSession(taskDescription) {
   const res = await fetch(`${SERVER_BASE_URL}/session/start`, {
     method: "POST",

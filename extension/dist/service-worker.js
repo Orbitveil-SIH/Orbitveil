@@ -322,7 +322,16 @@ async function applyLiveRedaction(tab, redactions = { faces: 0, pii: 0 }) {
         "email",
         "password",
         "account_number",
-        "credit_card"
+        "credit_card",
+        // Added for mosdac-portal.html fixture: "Employee / Researcher ID"
+        // was slipping through unredacted since it's not covered by type,
+        // autocomplete, or the other exact-name entries above.
+        "employee_id",
+        "employee-id",
+        "employeeid",
+        "researcher_id",
+        "researcher-id",
+        "researcherid"
       ]);
       const sensitiveAutocomplete = /* @__PURE__ */ new Set(["name", "email", "tel", "cc-number", "new-password", "current-password"]);
       const elements = [...document.querySelectorAll("input, textarea, select, img")];
@@ -388,7 +397,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
     func: (imageWidth2, imageHeight2) => {
       const PII_AUTOCOMPLETE = /* @__PURE__ */ new Set(["name", "email", "tel", "cc-number", "new-password"]);
       const PII_TYPES = /* @__PURE__ */ new Set(["password"]);
-      const PII_KEYWORDS = ["name", "email", "phone", "tel", "password", "card", "credit"];
+      const PII_KEYWORDS = ["name", "email", "phone", "tel", "password", "card", "credit", "employee", "researcher"];
       const EMAIL_REGEX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
       const PHONE_REGEX = /(?<!\d)(?:\+\d{1,3}[\s.-]?)?(?:\d{5}[\s.-]?\d{5}|\d{3}[\s.-]?\d{3}[\s.-]?\d{4})\b/g;
       const CARD_REGEX = /\b\d(?:[ -]?\d){12,18}\b/g;
@@ -518,7 +527,8 @@ function __orbitveilReasoningOverlayFunc(stepNumber, reasoning, actionType, acti
   card.innerHTML = `
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
       <span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;"></span>
-      <span style="font-weight:600;letter-spacing:0.3px;color:#9ae6b4;">ORBITVEIL AGENT \u2014 STEP ${stepNumber}</span>
+      <span style="font-weight:600;letter-spacing:0.3px;color:#9ae6b4;">CLOUD AI REASONING (Groq) \u2014 STEP ${stepNumber}</span>
+      <span style="opacity:0.55;font-size:10.5px;margin-left:auto;">on-device blur applied first</span>
     </div>
     <div style="opacity:0.92;margin-bottom:8px;">${reasoning ? reasoning : "(no reasoning returned)"}</div>
     <div style="font-family:ui-monospace, monospace;font-size:11.5px;background:rgba(255,255,255,0.08);padding:4px 8px;border-radius:6px;color:#a5d8ff;">
@@ -719,8 +729,13 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
     onProgress(`Reached max steps (${MAX_STEPS}) without completion.`);
     return { status: "max_steps_reached" };
   } finally {
-    if (lastTab) await clearReasoningOverlay(lastTab).catch(() => {
-    });
+    if (lastTab) {
+      const tabToClear = lastTab;
+      setTimeout(() => {
+        clearReasoningOverlay(tabToClear).catch(() => {
+        });
+      }, 6e3);
+    }
     await deleteSession(session_id);
   }
 }

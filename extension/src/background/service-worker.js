@@ -599,7 +599,8 @@ function __orbitveilReasoningOverlayFunc(stepNumber, reasoning, actionType, acti
   card.innerHTML = `
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
       <span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;"></span>
-      <span style="font-weight:600;letter-spacing:0.3px;color:#9ae6b4;">ORBITVEIL AGENT \u2014 STEP ${stepNumber}</span>
+      <span style="font-weight:600;letter-spacing:0.3px;color:#9ae6b4;">CLOUD AI REASONING (Groq) \u2014 STEP ${stepNumber}</span>
+      <span style="opacity:0.55;font-size:10.5px;margin-left:auto;">on-device blur applied first</span>
     </div>
     <div style="opacity:0.92;margin-bottom:8px;">${reasoning ? reasoning : "(no reasoning returned)"}</div>
     <div style="font-family:ui-monospace, monospace;font-size:11.5px;background:rgba(255,255,255,0.08);padding:4px 8px;border-radius:6px;color:#a5d8ff;">
@@ -874,7 +875,18 @@ async function runAutomationLoop(taskDescription, onProgress = () => {}) {
     onProgress(`Reached max steps (${MAX_STEPS}) without completion.`);
     return { status: "max_steps_reached" };
   } finally {
-    if (lastTab) await clearReasoningOverlay(lastTab).catch(() => {});
+    // Delay the clear rather than doing it immediately - the task can
+    // finish in as few as 2 steps, and clearing the overlay the instant
+    // the loop exits means the final reasoning (often the most important
+    // one to show a judge) can vanish before anyone sees it. Leave it
+    // visible for a few seconds, then clean up so it doesn't linger
+    // forever if the user navigates away.
+    if (lastTab) {
+      const tabToClear = lastTab;
+      setTimeout(() => {
+        clearReasoningOverlay(tabToClear).catch(() => {});
+      }, 6000);
+    }
     await deleteSession(session_id);
   }
 }

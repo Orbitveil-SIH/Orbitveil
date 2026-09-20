@@ -65,6 +65,10 @@ On our ground-truth test form:
 - **2/2** control fields correctly left untouched
 - **100% precision, 100% recall** on this run
 - Task completed end-to-end, self-terminated correctly, zero sensitive fields ever touched
+- Local processing (capture → detect → redact): **535.3 ms** — 8-23x faster than the ~4.5s
+  server reasoning step it protects
+- Client footprint: **~0.2-1.1% CPU, ~86.6 MB memory** — no GPU required
+- Spatial redaction: no visible leakage at face/PII bounding-box edges (visual check)
 
 *Say "on this run" — one clean test isn't a claim of universal accuracy, and being precise about
 that builds more credibility than overclaiming.*
@@ -73,10 +77,13 @@ that builds more credibility than overclaiming.*
 
 ## Slide 7 — Honest Limitations
 
-- Model-provider latency can spike under free-tier load (several seconds/action, worst case) —
-  a provider choice, not a design flaw
-- Spatial redaction accuracy and client resource usage are still being measured — methodology is
-  defined, numbers are pending
+- Model-provider latency can spike under free-tier load (561 ms-25.6s observed across different
+  runs) — a provider choice, not a design flaw; mitigated in the live demo with a backup recording
+- Redaction precision here is a *visual/qualitative* check, not an automated pixel-diff metric —
+  fine for this fixture, not yet proven at scale
+- "Visual context" is read via DOM parsing + face detection, not a full pixel-level ViT reading
+  the whole screen — a lighter, faster approach that still satisfies "equivalent computer vision
+  model," but worth naming plainly rather than implying more than was built
 
 *Judges respond well to teams who know exactly what's unproven vs proven. Don't hide this slide.*
 

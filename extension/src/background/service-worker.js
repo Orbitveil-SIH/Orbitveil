@@ -844,6 +844,74 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   autoProtectedTabs.delete(tabId);
 });
 
+// --- Always-on privacy protection (independent of task execution) ---------
+// This is the actual "always-on" privacy guarantee: it runs on every page
+// the user visits, requires no typed task and no click of Start, and never
+// talks to the server - pure on-device face/PII detection + local blur. It
+// reuses the same detection functions as the task loop and the
+// phishing-specific auto-protect above, but is NOT gated by
+// isPhishingTargetUrl, so it applies generally, not just to known-malicious
+// targets.
+//
+// Known limitation: chrome.tabs.captureVisibleTab only works on the tab
+// that is currently visible/focused in its window, so this can protect
+// whatever page the user is actively looking at - it cannot silently scan
+// background tabs the user hasn't switched to yet. That's a Chrome API
+// constraint, not a bug here, and is worth stating plainly rather than
+// implying blanket coverage: "protects on view," not "protects everywhere
+// at once."
+const privacyProtectedFingerprints = new Map(); // tabId -> last-protected "tabId:url" fingerprint
+
+async function alwaysOnPrivacyProtect(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab?.url || !/^(https?|file):\/\//.test(tab.url)) return;
+
+    // captureVisibleTab only works on the active tab of its window - skip
+    // silently if this tab isn't the one currently in view.
+    const [activeTab] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+    if (!activeTab || activeTab.id !== tabId) return;
+
+    const fingerprint = `${tab.id}:${tab.url}`;
+    if (privacyProtectedFingerprints.get(tabId) === fingerprint) return; // already checked this exact page load
+
+    const { redactions } = await getRedactedImageAndDetections(tab);
+    privacyProtectedFingerprints.set(tabId, fingerprint);
+
+    const shouldBlur = (redactions?.faces || 0) > 0 || (redactions?.pii || 0) > 0;
+    if (!shouldBlur) return;
+
+    const result = await applyLiveRedaction(tab, redactions);
+    console.log("[Orbitveil] Always-on privacy protection applied:", result);
+  } catch (err) {
+    console.warn("[Orbitveil] Always-on privacy protection failed:", err?.message || err);
+  }
+}
+
+// Fires whenever a page finishes loading, on any tab.
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!tab || !tab.url || !/^(https?|file):\/\//.test(tab.url)) return;
+  if (changeInfo.status === "loading") {
+    privacyProtectedFingerprints.delete(tabId); // new navigation - allow a fresh check
+    return;
+  }
+  if (changeInfo.status !== "complete") return;
+  setTimeout(() => {
+    alwaysOnPrivacyProtect(tabId).catch(() => {});
+  }, 500);
+});
+
+// Fires when the user switches to an already-loaded tab (e.g. alt-tabbing
+// back to a page that was open before the extension ran, or returning to a
+// tab after a same-page/SPA navigation that never fired onUpdated).
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  alwaysOnPrivacyProtect(tabId).catch(() => {});
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  privacyProtectedFingerprints.delete(tabId);
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "START_TASK") {
     if (currentRunPromise) {

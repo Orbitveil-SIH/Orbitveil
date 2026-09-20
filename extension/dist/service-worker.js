@@ -145,7 +145,6 @@ function executeActionInPage(action) {
 }
 
 // src/background/service-worker.js
-var SERVER_BASE_URL = "http://localhost:8000";
 async function startSession(taskDescription) {
   const res = await fetch(`${SERVER_BASE_URL}/session/start`, {
     method: "POST",
@@ -488,6 +487,69 @@ var DEBUG_OPEN_RAW_CAPTURE = false;
 var debugCaptureShown = false;
 var DEBUG_OPEN_REDACTED_CAPTURE = false;
 var debugRedactedCaptureShown = false;
+function __orbitveilReasoningOverlayFunc(stepNumber, reasoning, actionType, actionTarget) {
+  const OVERLAY_ID = "__orbitveil_reasoning_overlay__";
+  let card = document.getElementById(OVERLAY_ID);
+  if (!card) {
+    card = document.createElement("div");
+    card.id = OVERLAY_ID;
+    Object.assign(card.style, {
+      position: "fixed",
+      bottom: "20px",
+      right: "20px",
+      maxWidth: "360px",
+      background: "rgba(15, 18, 30, 0.94)",
+      color: "#fff",
+      fontFamily: "system-ui, -apple-system, sans-serif",
+      fontSize: "13px",
+      lineHeight: "1.45",
+      borderRadius: "10px",
+      padding: "14px 16px",
+      boxShadow: "0 6px 24px rgba(0,0,0,0.35)",
+      border: "1px solid rgba(255,255,255,0.12)",
+      zIndex: "2147483647",
+      pointerEvents: "none",
+      transition: "opacity 0.25s ease"
+    });
+    document.body.appendChild(card);
+  }
+  const actionLine = actionType === "wait" || actionType === "done" ? actionType.toUpperCase() : `${actionType.toUpperCase()}${actionTarget ? " \u2192 " + actionTarget : ""}`;
+  card.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+      <span style="width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;"></span>
+      <span style="font-weight:600;letter-spacing:0.3px;color:#9ae6b4;">ORBITVEIL AGENT \u2014 STEP ${stepNumber}</span>
+    </div>
+    <div style="opacity:0.92;margin-bottom:8px;">${reasoning ? reasoning : "(no reasoning returned)"}</div>
+    <div style="font-family:ui-monospace, monospace;font-size:11.5px;background:rgba(255,255,255,0.08);padding:4px 8px;border-radius:6px;color:#a5d8ff;">
+      ${actionLine}
+    </div>
+  `;
+  card.style.opacity = "1";
+}
+function __orbitveilClearReasoningOverlayFunc() {
+  const card = document.getElementById("__orbitveil_reasoning_overlay__");
+  if (card) card.remove();
+}
+async function drawReasoningOverlay(tab, stepNumber, reasoning, actionType, actionTarget) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: __orbitveilReasoningOverlayFunc,
+      args: [stepNumber, reasoning, actionType, actionTarget]
+    });
+  } catch (e) {
+    console.warn("[Orbitveil] reasoning overlay failed to draw:", e.message);
+  }
+}
+async function clearReasoningOverlay(tab) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: __orbitveilClearReasoningOverlayFunc
+    });
+  } catch (e) {
+  }
+}
 async function getRedactedImageAndDetections(tab) {
   const localStart = performance.now();
   const screenshotB64 = await captureScreenshot();
@@ -567,6 +629,7 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
   stopRequested = false;
   let detectionCache = null;
   let pageAlreadyProtectedThisRun = false;
+  let lastTab = null;
   onProgress("Starting session...");
   const { session_id } = await startSession(taskDescription);
   console.log("Session started:", session_id);
@@ -580,6 +643,7 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
       }
       onProgress(`Step ${step}: reading page...`);
       const tab = await getActiveTab();
+      lastTab = tab;
       const tabFingerprint = `${tab.id}:${tab.url || ""}`;
       if (!detectionCache || detectionCache.tabId !== tab.id || detectionCache.tabFingerprint !== tabFingerprint) {
         onProgress(`Step ${step}: detecting faces & PII...`);
@@ -626,8 +690,10 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
         onProgress("Server marked session as errored.");
         return { status: "error", error: "Server marked session as errored." };
       }
+      await drawReasoningOverlay(tab, step, action.reasoning, action.type, action.target);
       if (action.type === "done") {
         onProgress("Done!");
+        await clearReasoningOverlay(tab);
         return { status: "done", steps: step };
       }
       if (action.type === "wait") {
@@ -652,6 +718,8 @@ async function runAutomationLoop(taskDescription, onProgress = () => {
     onProgress(`Reached max steps (${MAX_STEPS}) without completion.`);
     return { status: "max_steps_reached" };
   } finally {
+    if (lastTab) await clearReasoningOverlay(lastTab).catch(() => {
+    });
     await deleteSession(session_id);
   }
 }

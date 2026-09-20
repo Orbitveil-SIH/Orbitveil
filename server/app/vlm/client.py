@@ -9,7 +9,7 @@ client = Groq(api_key=GROQ_API_KEY)
 
 MAX_RETRIES = 1
 RETRY_DELAY_SECONDS = 1
-MAX_COMPLETION_TOKENS = 300
+MAX_COMPLETION_TOKENS = 500  # raised from 300 - reasoning-first schema needs more room
 
 # Qwen on Groq doesn't always follow tool-call schemas strictly (it may
 # rename/drop fields), and Groq validates tool calls server-side BEFORE
@@ -62,15 +62,11 @@ def get_next_action(task_description: str, dom_summary: str, redacted_image_b64:
                     }
                 ],
                 response_format={"type": "json_object"},
-                # Non-thinking mode - this is a single quick action decision,
-                # not a task that needs deep reasoning. Thinking mode was
-                # burning the entire token budget on an internal reasoning
-                # trace before ever writing the JSON, causing both timeouts
-                # (20-30s) and outright json_validate_failed errors.
+                
                 reasoning_effort="none",
-                temperature=0.7,
-                top_p=0.8,
-                presence_penalty=0.2,
+                
+                temperature=0.2,
+                top_p=0.95,
                 max_completion_tokens=MAX_COMPLETION_TOKENS,
                 timeout=15,
             )

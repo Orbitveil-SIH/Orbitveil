@@ -1,100 +1,51 @@
-# Submission — Orbitveil (SIH 26171)
+# docs/submission.md
 
-**Team Name:** Team Brain.exe
-**Problem Statement ID:** SIH 26171
-**Problem Statement Title:** On-device Visual Perception for Light-weight Browser Agents
-**Team Members:** Aparna Dhiraj , AryaKrishna CS, Danwin Sajith , Harisha Pal , Dilkush M , Aakash Singh Chandel
+## Problem Statement
+**PS 26171** — On-device Visual Perception for Lightweight Browser Agents (ISRO, Software, Miscellaneous theme)
 
----
+AI browser agents that automate tasks on a screen currently have to send the raw screen — passwords, personal data, faces, internal dashboards — to a cloud model just to understand what's on it. Orbitveil removes that requirement: all sensitive-data detection and redaction happens on-device, before anything reaches a server.
 
-## 1. Idea Title
+## Our Solution
+Orbitveil is a Chrome extension (Manifest V3) paired with a FastAPI reasoning server:
+1. Captures the screen locally
+2. Detects faces (MediaPipe, on-device) and PII (pattern matching + DOM heuristics, on-device)
+3. Redacts both before any network call
+4. Sends only the sanitized screenshot + sanitized DOM summary to the server
+5. Server (Groq-backed reasoning) returns a structured action — click, type, scroll
+6. Extension executes the action locally via `executor.js`
+7. Loop repeats until the task completes
 
-**Orbitveil** — a browser extension that lets an AI agent see and act on a web page without
-ever sending sensitive data off the device.
+A separate, always-on layer runs independently of the task loop: on-device detection blurs sensitive fields/faces the moment any page loads or is switched to — no task typed, no button clicked, no server call. Confirmed working on both a confidential-portal-style page (MOSDAC) and a phishing test page.
 
-## 2. Problem Statement
+## Requirement-Mapping Table
 
-AI browser agents need visual context — screenshots of the page — to decide what to click, type,
-or select next. Today that means the full screenshot, faces and personal data included, gets sent
-to a remote model. The problem statement requires that only anonymized, unidentifiable data reach
-the central server.
+| PS 26171 requirement | Our implementation | Status |
+|---|---|---|
+| On-device visual perception | `face-detector.js` (MediaPipe, runs in an Offscreen Document since service workers can't load WASM/canvas) | ✅ Built & tested |
+| Local, privacy-preserving processing | Redaction happens client-side before any network call (`redactor.js` / `redactScreenshotViaOffscreen`) | ✅ Built & tested |
+| Understanding UI elements | DOM element scan — `getDomSummaryFromActiveTab()` in `service-worker.js` | ✅ Built & tested |
+| Local text/PII filtering | `getPiiDetectionsFromActiveTab()` — regex (email/phone/card w/ Luhn check) + DOM attribute heuristics, `service-worker.js` | ✅ Built & tested |
+| Bounding-box tracking | Face + PII bounding boxes computed in-page, scaled to screenshot coordinates, passed to redactor | ✅ Built & tested |
+| "Privacy Preserving Filter... clearly demonstrated" | On-page visible blur overlay (`applyLiveRedaction`) — separate from the actual screenshot redaction, exists specifically so judges can see it happen live | ✅ Built & tested |
+| Resource-constrained client | No GPU required; runs at ~4.8% CPU, ~85MB memory on a normal laptop | ✅ Measured |
+| Only sanitized data reaches the server | Server only ever receives `redacted_image_b64` + sanitized `dom_summary` — never a raw screenshot | ✅ Built & tested |
+| Server-side LLM/VLM integration, returns actionable command | FastAPI + Groq reasoning, returns `{type, target, value}` action consumed by `executor.js` | ✅ Built & tested |
+| End-to-end task demonstrated | Full loop (capture → detect → redact → reason → act → repeat) run against `demo-form.html` | ✅ Confirmed working |
+| (Beyond PS scope, differentiator) Always-on protection independent of task execution | `alwaysOnPrivacyProtect()` — fires on page load / tab switch, no task required, no server call | ✅ Built & tested |
 
-## 3. Proposed Solution
+## Evaluation Metrics (real numbers, from `eval/results.md`)
 
-Orbitveil's core idea: **redact locally, reason remotely.** Every sensitive element — faces,
-passwords, card numbers, emails, phone numbers — is detected and blacked out or blurred inside
-the browser, before any network request is built. The server (and the model it calls) only ever
-receives a screenshot that has already been redacted, plus a DOM summary stripped of sensitive
-values. Nothing sensitive is ever transmitted — not because the server promises not to look, but
-because it is never sent in the first place.
-
-## 4. Technical Approach
-
-**Pipeline (runs once per agent action):**
-
-1. **Capture** — extension screenshots the current tab
-2. **Detect** — MediaPipe finds faces; a regex + DOM-attribute scanner finds PII fields
-3. **Redact** — faces are blurred and PII fields are blacked out, entirely on-device (canvas)
-4. **Send** — only the redacted image and a stripped DOM summary go to the server
-5. **Reason** — the server appends this to the session's history and asks the vision-language
-   model: given the task, the history so far, and the current state, what's the single next
-   action? (`click | type | scroll | wait | done`)
-6. **Execute** — the extension runs that action on the real page, and the loop repeats until the
-   model signals `done`
-
-Feeding the action history back into every step (rather than re-planning from scratch) was a
-deliberate fix: early testing showed that without history, the model had no memory of what it had
-already done and kept re-deciding the same first action indefinitely.
-
-**Key components:**
-
-| Component | Role |
+| Metric | Result |
 |---|---|
-| Screenshot capture | Grabs the current tab state |
-| Face detection (MediaPipe) | Locates faces for blurring |
-| PII scanner (regex + DOM attributes) | Locates sensitive form fields |
-| Redaction (canvas) | Blurs/blacks-out sensitive regions before anything leaves the browser |
-| Action executor | Carries out the model's chosen action on the live page |
-| Server + session state | Holds per-task history, orchestrates the step loop |
-| VLM integration | Vision-language model call that returns the next action |
+| Face detection recall | 1/1 |
+| PII detection recall (5 sensitive fields) | 5/5 |
+| PII detection precision (2 control fields) | 0/2 false positives |
+| Redaction spatial accuracy | Qualitative / visual |
+| Local processing latency (capture → redact) | 535.30 ms |
+| Server round-trip latency | 4477.90 ms *(Groq free-tier constraint, not architectural)* |
+| CPU / memory usage | 4.8% CPU, ~85 MB |
 
-**Stack:** MediaPipe (face detection), canvas-based redaction in the extension, FastAPI-style
-server for session/step orchestration, a hosted vision-language model for action reasoning.
-
-## 5. Feasibility and Viability
-
-The full loop (capture → detect → redact → send → execute) is implemented and has run
-end-to-end against a ground-truth test form (`demo/demo-form.html`). All five official
-evaluation metrics have been measured directly, not estimated — full methodology and raw
-numbers in `eval/results.md`:
-
-| # | Metric | Weight | Result |
-|---|---|---|---|
-| 1 | Accuracy of visual context from screen | 25% | Face correctly located; all 8 interactive elements captured with zero misses in the DOM read; 6/6 agent actions targeted the correct element (0/5 sensitive fields ever touched) |
-| 2 | Recall/precision of PII detection | 20% | 5/5 sensitive fields detected (100% recall), 0/2 control fields wrongly flagged (100% precision) |
-| 3 | Precision of redaction | 20% | Face blur and PII black-boxes both visually confirmed tightly aligned to their regions, no edge leakage observed |
-| 4 | Client-side resource utilization | 20% | ~87MB peak memory (MediaPipe WASM + model loaded), <1.2% CPU during active detection |
-| 5 | End-to-end latency | 15% | ~535ms local processing (capture + detect + redact) per step; server round trip is the dominant cost (see known constraint below) |
-
-**Known constraint:** the current model provider's free tier can queue under load, adding
-several seconds — up to ~26s observed worst case — of latency per action (see Latency in
-`eval/results.md`). This doesn't affect correctness, only responsiveness, and is a swappable
-provider choice rather than a structural limitation of the approach — the redaction layer runs
-identically regardless of which downstream model is called.
-
-## 6. Impact and Benefits
-
-- Removes the core privacy trade-off of screen-sharing AI agents: you get agentic help on a page
-  without sending faces, passwords, card numbers, or other PII to any third party.
-- Architecture is provider-agnostic — the redaction layer works regardless of which
-  vision-language model is used downstream, so the privacy guarantee doesn't depend on trusting
-  a specific vendor.
-- Applicable beyond form-filling: any browser-agent workflow that currently requires full-screen
-  capture (support automation, accessibility tools, QA testing agents) can adopt the same
-  redact-before-send pattern.
-
-## 7. References
-
-- `docs/architecture.md` — full pipeline design and component ownership
-- `eval/results.md` — evaluation methodology and current results
-- `demo/demo-form.html` — ground-truth test fixture used for evaluation
+## Known Limitations (stated honestly, not hidden)
+- `chrome.tabs.captureVisibleTab` only works on the currently visible/focused tab — protection is "on view," not blanket coverage of background tabs
+- PII detection is pattern/heuristic-based, not a trained ML classifier — fast and resource-light, but may miss unusual field-naming conventions
+- Server round-trip latency is dependent on Groq's free-tier response time during the demo

@@ -2,7 +2,7 @@
 
 ---
 
-## Slide 1 — Title
+## Title
 
 **Orbitveil**
 Redact locally, reason remotely.
@@ -10,7 +10,7 @@ Redact locally, reason remotely.
 Team Brain.exe · SIH 26171
 ---
 
-## Slide 2 — The Problem
+## The Problem
 
 AI browser agents need to *see* the screen to act on it.
 
@@ -22,7 +22,7 @@ central server.**
 
 ---
 
-## Slide 3 — The Idea
+## The Idea
 
 **Redact locally, reason remotely.**
 
@@ -33,7 +33,7 @@ The server is architecturally incapable of seeing raw sensitive data. Not a poli
 
 ---
 
-## Slide 4 — How It Works
+## How It Works
 
 1. **Capture** — screenshot the tab
 2. **Detect** — MediaPipe finds faces; a scanner finds PII fields
@@ -46,7 +46,7 @@ The server is architecturally incapable of seeing raw sensitive data. Not a poli
 
 ---
 
-## Slide 5 — What Makes It Reliable
+## What Makes It Reliable
 
 Early on, the agent kept re-deciding the same first action forever.
 
@@ -57,7 +57,7 @@ already done — not just what the task is.
 
 ---
 
-## Slide 6 — Results (so far)
+## Results (so far)
 
 On our ground-truth test form:
 
@@ -75,7 +75,7 @@ that builds more credibility than overclaiming.*
 
 ---
 
-## Slide 7 — Honest Limitations
+## Honest Limitations
 
 - Model-provider latency can spike under free-tier load (561 ms-25.6s observed across different
   runs) — a provider choice, not a design flaw; mitigated in the live demo with a backup recording
@@ -89,7 +89,7 @@ that builds more credibility than overclaiming.*
 
 ---
 
-## Slide 8 — Why It Matters
+## Why It Matters
 
 - Solves the core privacy trade-off of agentic browsing: help on your screen without your data
   leaving your device
@@ -99,13 +99,6 @@ that builds more credibility than overclaiming.*
 
 ---
 
-## Slide 9 — Team & Ask
-
-[Team members, roles]
-
-[What you're asking for: funding / mentorship / next milestone — fill in per SIH round]
-
----
 
 ## Appendix (backup slides, only if asked)
 

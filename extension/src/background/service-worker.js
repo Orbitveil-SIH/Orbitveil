@@ -239,6 +239,11 @@ async function applyLiveRedaction(tab, redactions = { faces: 0, pii: 0 }) {
         "full_name", "full-name", "name", "dob", "date_of_birth",
         "phone", "phone_number", "card_number", "card-number",
         "email", "password", "account_number", "credit_card",
+        // Added for mosdac-portal.html fixture: "Employee / Researcher ID"
+        // was slipping through unredacted since it's not covered by type,
+        // autocomplete, or the other exact-name entries above.
+        "employee_id", "employee-id", "employeeid",
+        "researcher_id", "researcher-id", "researcherid",
       ]);
       const sensitiveAutocomplete = new Set(["name", "email", "tel", "cc-number", "new-password", "current-password"]);
 
@@ -319,7 +324,7 @@ async function getPiiDetectionsFromActiveTab(tab, imageWidth, imageHeight) {
     func: (imageWidth, imageHeight) => {
       const PII_AUTOCOMPLETE = new Set(["name", "email", "tel", "cc-number", "new-password"]);
       const PII_TYPES = new Set(["password"]);
-      const PII_KEYWORDS = ["name", "email", "phone", "tel", "password", "card", "credit"];
+      const PII_KEYWORDS = ["name", "email", "phone", "tel", "password", "card", "credit", "employee", "researcher"];
       const EMAIL_REGEX = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
       const PHONE_REGEX = /(?<!\d)(?:\+\d{1,3}[\s.-]?)?(?:\d{5}[\s.-]?\d{5}|\d{3}[\s.-]?\d{3}[\s.-]?\d{4})\b/g;
       const CARD_REGEX = /\b\d(?:[ -]?\d){12,18}\b/g;

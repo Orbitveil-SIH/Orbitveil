@@ -178,12 +178,18 @@
 
     sensitiveEls.forEach(redactElement);
 
-    // Declared here (not inside showBanner) so the dismiss handler below
-    // can disconnect it - it must stop watching once the user has
-    // explicitly trusted the page, otherwise removing the banner itself
-    // (a DOM mutation) re-triggers the observer and instantly re-blurs
-    // everything right after the user just un-blurred it.
+    // Explicit flag, checked inside the observer callback itself - this is
+    // the real fix. Relying on observer.disconnect() alone is not enough:
+    // MutationObserver callbacks are asynchronous (queued as microtasks), so
+    // a callback queued by an earlier mutation (e.g. the banner being
+    // inserted) can still fire *after* disconnect() has been called, landing
+    // right after the user clicks "trust" and re-blurring fields that were
+    // just restored. This flag makes the callback a no-op once the user has
+    // trusted the page, regardless of when any in-flight callback fires.
+    let trusted = false;
+
     const observer = new MutationObserver(() => {
+      if (trusted) return;
       findSensitiveElements().forEach(redactElement);
     });
     observer.observe(document.documentElement, {
@@ -192,6 +198,7 @@
     });
 
     showBanner(reasons, () => {
+      trusted = true;
       observer.disconnect();
       sensitiveEls.forEach(restoreElement);
     });

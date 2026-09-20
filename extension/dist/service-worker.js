@@ -695,6 +695,44 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   autoProtectedTabs.delete(tabId);
 });
+var privacyProtectedFingerprints = /* @__PURE__ */ new Map();
+async function alwaysOnPrivacyProtect(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab?.url || !/^(https?|file):\/\//.test(tab.url)) return;
+    const [activeTab] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+    if (!activeTab || activeTab.id !== tabId) return;
+    const fingerprint = `${tab.id}:${tab.url}`;
+    if (privacyProtectedFingerprints.get(tabId) === fingerprint) return;
+    const { redactions } = await getRedactedImageAndDetections(tab);
+    privacyProtectedFingerprints.set(tabId, fingerprint);
+    const shouldBlur = (redactions?.faces || 0) > 0 || (redactions?.pii || 0) > 0;
+    if (!shouldBlur) return;
+    const result = await applyLiveRedaction(tab, redactions);
+    console.log("[Orbitveil] Always-on privacy protection applied:", result);
+  } catch (err) {
+    console.warn("[Orbitveil] Always-on privacy protection failed:", err?.message || err);
+  }
+}
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!tab || !tab.url || !/^(https?|file):\/\//.test(tab.url)) return;
+  if (changeInfo.status === "loading") {
+    privacyProtectedFingerprints.delete(tabId);
+    return;
+  }
+  if (changeInfo.status !== "complete") return;
+  setTimeout(() => {
+    alwaysOnPrivacyProtect(tabId).catch(() => {
+    });
+  }, 500);
+});
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  alwaysOnPrivacyProtect(tabId).catch(() => {
+  });
+});
+chrome.tabs.onRemoved.addListener((tabId) => {
+  privacyProtectedFingerprints.delete(tabId);
+});
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "START_TASK") {
     if (currentRunPromise) {

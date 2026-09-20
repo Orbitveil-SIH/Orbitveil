@@ -153,7 +153,7 @@
       reasons.join("; ") + ")";
 
     const btn = document.createElement("button");
-    btn.textContent = "I trust this site \u2014 show fields";
+    btn.textContent = "I trust this site \u2014 dismiss warning";
     btn.style.cssText = [
       "margin-left:12px", "background:#fff", "color:#b91c1c", "border:none",
       "border-radius:4px", "padding:6px 10px", "font-size:13px",

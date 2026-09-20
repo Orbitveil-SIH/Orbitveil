@@ -15,8 +15,8 @@
 - Navigate to the phishing test page
 - Auto-blur triggers again
 - Say: *"And it doesn't just protect your data leaving the device — it protects you from a malicious page trying to get data out of you, before you type anything. Same local pipeline, doing double duty."*
+- **If you click "I trust this site — dismiss warning" on camera:** narrate that this only dismisses the phishing-specific banner. The PII fields stay blurred regardless — say explicitly *"Notice the fields are still protected even after I dismiss the warning — that's deliberate. PII protection never depends on whether a site claims to be trustworthy."* Do NOT imply the button reveals the redacted fields; it doesn't, on purpose.
 
 > **Note for whoever presents:** steps 1-3 require zero clicks on the extension icon. That's the whole point — don't reach for the popup out of habit.
 
 ---
-

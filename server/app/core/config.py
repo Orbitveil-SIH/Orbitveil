@@ -4,7 +4,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+# meta-llama/llama-4-scout-17b-16e-instruct was deprecated and retired by
+# Groq on 2026-06-17 - requests to it now 404 with "model_not_found".
+# qwen/qwen3.8-27b is Groq's current recommended vision-capable successor
+# (qwen/qwen3.6-27b also still works as of this writing but is itself
+# being phased out in favor of 3.8 - see https://console.groq.com/docs/deprecations).
+GROQ_MODEL = "qwen/qwen3.8-27b"
 
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY not set. Add it to server/.env")

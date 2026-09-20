@@ -27,7 +27,7 @@ A separate, always-on layer runs independently of the task loop: on-device detec
 | Local text/PII filtering | `getPiiDetectionsFromActiveTab()` — regex (email/phone/card w/ Luhn check) + DOM attribute heuristics, `service-worker.js` | ✅ Built & tested |
 | Bounding-box tracking | Face + PII bounding boxes computed in-page, scaled to screenshot coordinates, passed to redactor | ✅ Built & tested |
 | "Privacy Preserving Filter... clearly demonstrated" | On-page visible blur overlay (`applyLiveRedaction`) — separate from the actual screenshot redaction, exists specifically so judges can see it happen live | ✅ Built & tested |
-| Resource-constrained client | No GPU required; runs at ~4.8% CPU, ~85MB memory on a normal laptop | ✅ Measured |
+| Resource-constrained client | No GPU required; runs at ~0.2–1.1% CPU, ~86.6 MB memory on a normal laptop | ✅ Measured |
 | Only sanitized data reaches the server | Server only ever receives `redacted_image_b64` + sanitized `dom_summary` — never a raw screenshot | ✅ Built & tested |
 | Server-side LLM/VLM integration, returns actionable command | FastAPI + Groq reasoning, returns `{type, target, value}` action consumed by `executor.js` | ✅ Built & tested |
 | End-to-end task demonstrated | Full loop (capture → detect → redact → reason → act → repeat) run against `demo-form.html` | ✅ Confirmed working |
@@ -43,7 +43,7 @@ A separate, always-on layer runs independently of the task loop: on-device detec
 | Redaction spatial accuracy | Qualitative / visual |
 | Local processing latency (capture → redact) | 535.30 ms |
 | Server round-trip latency | 4477.90 ms *(Groq free-tier constraint, not architectural)* |
-| CPU / memory usage | 4.8% CPU, ~85 MB |
+| CPU / memory usage | ~0.2–1.1% CPU, ~86.6 MB memory (Chrome Task Manager; workload completes faster than the 1s sampling interval, so this likely understates true peak — see `eval/results.md` §7) |
 
 ## Known Limitations (stated honestly, not hidden)
 - `chrome.tabs.captureVisibleTab` only works on the currently visible/focused tab — protection is "on view," not blanket coverage of background tabs
